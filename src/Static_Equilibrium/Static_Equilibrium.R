@@ -1,4 +1,4 @@
-#Solve the firm's problem for given wages and endogenous measures
+#Solve for static equilibrium
 
 # Libraries ---------------------------------------------------------------
 
@@ -20,23 +20,27 @@ setwd(dir)
 
 
 # Parameters --------------------------------------------------------------
-#This is just to see the shape of the policy functions
-eta = 0.5
-zeta = 0.5
-gamma = 5 #This is not a parameter, but just to try
-rho = 0.8
-chi0 = 0.5
-Y = 1
-sigma = 0.5
-psi = 0.1
-w0 = 0.1
-w1 = 0.05
+#Household 
+xi = 0.455
+phi = 1
+theta = 2
+lambda_g = 0.5
+theta_L = 1.001
+theta_H = 4
 
 
 # Functions ---------------------------------------------------------------
 
+#Distributions
+F_g  = function(theta){
+  aux = pnorm(theta) 
+  return(aux)
+}
+F_b  = function(theta){
+  aux = pnorm(theta) 
+  return(aux)
+}
 #Firm i>I* (non-automated task)
-
 y0 = function(eta, zeta, gamma, chi0, rho, inputs){
   q = inputs[1]
   l = inputs[2]
