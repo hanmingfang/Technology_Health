@@ -28,7 +28,7 @@ theta_L = 1.001     #Domain for theta
 theta_H = 4
 m_L = 0             #Domain for medical expenditure shocks
 m_F = Inf
-mu_g = 2            #Mean of theta for healthy workers
+mu_g = 3            #Mean of theta for healthy workers
 mu_b = 1.001        #Mean of theta for healthy workers
 sd_g = 1            #Standard deviation of theta for healthy workers
 sd_b = 1            #Standard deviation of theta for unhealthy workers
@@ -159,16 +159,70 @@ E_u0 = function(theta,h,w0){
 theta_ins = function(h,w0,w1){
   initial = theta_L  #Search over
   final = theta_H
-  fun = function (theta) E_u0(theta,h,w0) - u1(theta,h,w1)   #As a function of just theta, this is a decreasing function of theta
+  fun = function (theta) E_u0(theta,h,w0) - u1(theta,h,w1)   #This is a decreasing function of theta
   if(E_u0(theta_L,h,w0) - u1(theta_L,h,w1) < 0){aux = theta_L} #If at lower bound is negative
   else if(E_u0(theta_H,h,w0) - u1(theta_H,h,w1) > 0){aux = theta_H}
-  else{aux = uniroot(fun, c(initial,final), tol = 1e-13, extendInt = "downX")$root}  #Get the root, downX is to tell that is decresing on theta
+  else{aux = uniroot(fun, c(initial,final), tol = 1e-13, extendInt = "downX")$root}  #Get the root, 
+  #downX is to tell that is decresing on theta, so can look further than the specified range, 
+  #although Im not using this given the boudary cases
     return(aux) 
 }
-
+#Aggregate labor supply for no insurance
+L0_s = function(h,w0,w1){
+  if(h == 'g'){aux = lambda_g*l0_s(w0)*F_g(theta_ins(h,w0,w1))} # L^0_g
+  else{aux = (1-lambda_g)*l0_s(w0)*F_b(theta_ins(h,w0,w1))} # L^0_b
+  return(aux)
+}
+#Aggregate labor supply for insurance
+L1_s = function(h,w0,w1){
+  if(h == 'g'){aux = lambda_g*l1_s(w1)*(1-F_g(theta_ins(h,w0,w1)))} # L^1_g
+  else{aux = (1-lambda_g)*l1_s(w1)*(1-F_b(theta_ins(h,w0,w1)))} # L^1_b
+  return(aux)
+}
+#Endogenous proportion of healthy workers for no health insurance
+Chi_0g = function(w0,w1,i){
+  aux = delta_sort(i)*(L0_s('g',w0,w1)/(L0_s('g',w0,w1) + L0_s('b',w0,w1)))
+  return(aux)
+}
+#Endogenous proportion of healthy workers for health insurance
+Chi_1g = function(w0,w1,i){
+  aux = delta_sort(i)*(L1_s('g',w0,w1)/(L1_s('g',w0,w1) + L1_s('b',w0,w1)))
+  return(aux)
+}
+###################################################################################
+#NOTE: we can get advantageous selection for some wages and Adverse selection for others
+#if we take (w0,w1)=(2,0.25) we get Advantageous Sel, and if (w0,w1)=(2,1) we get Adverse Sel
+#The question is what happens in equilibrium!
+###################################################################################
+#Expected expenditure shock
+E_m = function(h){
+  integrand_exp = function(m){ #Creating a function that a returns a vectorized integrand
+    aux = vector(length = length(m))
+    if(h == 'g'){ #If healthy worker
+      for(i in 1:length(m)){
+        aux[i] = m[i]*h_g(m[i]) #integrand of expectation healty, for each medical shock
+      }
+    }
+    else{
+      for(i in 1:length(m)){
+        aux[i] = m[i]*h_b(m[i]) #integrand of expectation unhealty, for each medical shock
+      }
+    }
+    return(aux)
+  }
+  integral = integrate(integrand_exp, lower = m_L, upper = m_F)
+  return(integral$value) #return just the value of the inetgral
+}
+##################################################################################
+#NOTE: we can calculate this analitically too to be faster
+##################################################################################
+#Expected firm's medical expenditure'
+M = function(w0,w1,i){
+  aux = (E_m('g')*Chi_1g(w0,w1,i)+E_m('b')*(1-Chi_1g(w0,w1,i)))/l1_s(w1)
+  return(aux)
+}
 
 # Plots -------------------------------------------------------------------
-
 #Plot to show that FOSD in Assumption 1 holds for this case
 ggplot(data.frame(x=c(0, 15)), aes(x=x)) + 
   stat_function(fun=H_g, geom="line", aes(colour = "H_g")) + xlab("x") + 
@@ -181,12 +235,24 @@ ggplot(data.frame(x=c(1.001, 4)), aes(x=x)) +
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=gamma_prod, geom="line") + xlab("x") + ylab("y") 
 #Plot delta_sort
+#NOTE: this function ranges between something like 0.3 and 0.5, is this ok?
+#Should we impose somthing specfic here?
+#what is clear is that if we impose delta_prod = 1 is the usual Market clearing
+#and if delta_prod=0.3 to clear the market frims shoud demand more labor,
+#So in principle should be fine
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=delta_sort, geom="line") + xlab("x") + ylab("y") 
 #Plot C_A
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=C_A , geom="line") + xlab("x") + ylab("y") 
-
+#Plot Chi_0g and Chi_1g for advantageous selection (w0,w1)=(2,0.25)
+#We can observe in this case that as we have advantageous selection, 
+#then Proposition 6 is verified.
+Chi_0g_plot = function(i) Chi_0g(w0=2, w1=0.25,i)
+Chi_1g_plot = function(i) Chi_1g(w0=2, w1=0.25,i)
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
+  stat_function(fun=Chi_0g_plot, geom="line", aes(colour = "Chi_0g_plot")) + xlab("x") + 
+  ylab("y") + stat_function(fun=Chi_1g_plot, geom="line",aes(colour = "Chi_1g_plot"))  
 
 
 
