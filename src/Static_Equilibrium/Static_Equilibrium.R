@@ -38,10 +38,10 @@ util_min = 0.001    #Minimum consumption minus labor effort a household can have
 #Firm
 N = 1               #Range of tasks (upper limit)
 eta = 0.5           #Distribution parameter of the CES
-rho = 0.9           #Relative labor productivity of unhealthy workers
+rho = 0.8           #Relative labor productivity of unhealthy workers
 psi = 1             #Price of intermediates
 sigma = 2           #Elasticity of substitution between tasks
-zeta = 2            #Elasticity of substitution between factors
+zeta = 2            #Elasticity of substitution between factors (if fixed), just to define zeta_elas
 C_IN = 10           #Health Insurance Fixed Cost
 A = 1               #Parameter in labor productivity
 lambda_d = 1        #Parameter in sorting function
@@ -97,6 +97,12 @@ zeta_elas = function(i){
   aux = zeta
   return(aux)
 }
+#Normalizing constant in production function
+B = function(i){
+  zetai = zeta_elas(i)
+  aux = (1-eta)^(zetai/(1-zetai))
+  return(aux)
+}
 #Automation Fixed Cost
 C_A = function(i){
   aux = exp(D*i)
@@ -104,7 +110,6 @@ C_A = function(i){
 }
 
 # Equilibrium Equations ---------------------------------------------------
-#Households' optimal choices
 #Individual labor suply for No insurance
 l0_s = function(w0){
   aux = (w0/phi)^(1/xi)
@@ -189,38 +194,82 @@ Chi_1g = function(w0,w1,i){
   aux = delta_sort(i)*(L1_s('g',w0,w1)/(L1_s('g',w0,w1) + L1_s('b',w0,w1)))
   return(aux)
 }
-###################################################################################
-#NOTE: we can get advantageous selection for some wages and Adverse selection for others
-#if we take (w0,w1)=(2,0.25) we get Advantageous Sel, and if (w0,w1)=(2,1) we get Adverse Sel
-#The question is what happens in equilibrium!
-###################################################################################
-#Expected expenditure shock
-E_m = function(h){
-  integrand_exp = function(m){ #Creating a function that a returns a vectorized integrand
-    aux = vector(length = length(m))
-    if(h == 'g'){ #If healthy worker
-      for(i in 1:length(m)){
-        aux[i] = m[i]*h_g(m[i]) #integrand of expectation healty, for each medical shock
-      }
-    }
-    else{
-      for(i in 1:length(m)){
-        aux[i] = m[i]*h_b(m[i]) #integrand of expectation unhealty, for each medical shock
-      }
-    }
-    return(aux)
-  }
-  integral = integrate(integrand_exp, lower = m_L, upper = m_F)
-  return(integral$value) #return just the value of the inetgral
-}
-##################################################################################
-#NOTE: we can calculate this analitically too to be faster
-##################################################################################
-#Expected firm's medical expenditure'
+#Expected firm's medical expenditure
 M = function(w0,w1,i){
   aux = (E_m('g')*Chi_1g(w0,w1,i)+E_m('b')*(1-Chi_1g(w0,w1,i)))/l1_s(w1)
   return(aux)
 }
+#Average labor productivity for contract without health insurance
+gamma_prod_bar_0 = function(w0,w1,i){
+  aux = gamma_prod(i)*((1-rho)*Chi_0g(w0,w1,i)+rho)
+  return(aux)
+}
+#Average labor productivity for contract with health insurance
+gamma_prod_bar_1 = function(w0,w1,i){
+  aux = gamma_prod(i)*((1-rho)*Chi_1g(w0,w1,i)+rho)
+  return(aux)
+}
+#Effective wage without health insurance
+w_hat0 = function(w0,w1,i){
+  aux = w0/gamma_prod_bar_0(w0,w1,i)
+  return(aux)
+}
+#Effective wage with health insurance
+w_hat1 = function(w0,w1,i){
+  aux = (w1+M(w0,w1,i))/gamma_prod_bar_1(w0,w1,i)
+  return(aux)
+}
+#Effective price of capital
+R_hat = function(R,i){
+  aux = R/z_prod(i)
+  return(aux)
+}
+#Sufficient statistic for effective prices without insurance
+p_0 = function(w0,w1,i){
+  aux = (eta*w_hat0(w0,w1,i))/((1-eta)*psi)
+  return(aux)
+}
+#Sufficient statistic for effective prices with insurance
+p_1 = function(w0,w1,i){
+  aux = (eta*w_hat1(w0,w1,i))/((1-eta)*psi)
+  return(aux)
+}
+#Sufficient statistic for effective prices with capital
+p_k = function(R,i){
+  aux = (eta*R_hat(R,i))/((1-eta)*psi)
+  return(aux)
+}
+#Conditional output function without health insurance
+y_hat0 = function(w0,w1,i,Y){
+  p0i = p_0(w0,w1,i)
+  zetai = zeta_elas(i)
+  w_hat0i = w_hat0(w0,w1,i)
+  aux = (Y*((sigma-1)/sigma)^sigma)*((B(i)*(eta*p0i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(w_hat0i + psi*p0i^zetai))^sigma
+  return(aux)
+}
+#Conditional output function with health insurance
+y_hat1 = function(w0,w1,i,Y){
+  p1i = p_1(w0,w1,i)
+  zetai = zeta_elas(i)
+  w_hat1i = w_hat1(w0,w1,i)
+  aux = (Y*((sigma-1)/sigma)^sigma)*((B(i)*(eta*p1i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(w_hat1i + psi*p1i^zetai))^sigma
+  return(aux)
+}
+#Conditional output function with capital
+y_hatk = function(R,i,Y){
+  pki = p_k(R,i)
+  zetai = zeta_elas(i)
+  R_hati = R_hat(R,i)
+  aux = (Y*((sigma-1)/sigma)^sigma)*((B(i)*(eta*pki^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(R_hati + psi*pki^zetai))^sigma
+  return(aux)
+}
+
+# NOTES --------------------------------------------------------------------
+#We can get advantageous selection for some wages and Adverse selection for others
+#if we take (w0,w1)=(2,0.25) we get Advantageous Sel, and if (w0,w1)=(2,1) we get 
+#Adverse Sel The question is what happens in equilibrium!
+#We can calculate the expectations analitically too to be faster
+#Should the Normalizing constant B depend on i too ? It is in the code nut not in the document
 
 # Plots -------------------------------------------------------------------
 #Plot to show that FOSD in Assumption 1 holds for this case
@@ -235,11 +284,6 @@ ggplot(data.frame(x=c(1.001, 4)), aes(x=x)) +
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=gamma_prod, geom="line") + xlab("x") + ylab("y") 
 #Plot delta_sort
-#NOTE: this function ranges between something like 0.3 and 0.5, is this ok?
-#Should we impose somthing specfic here?
-#what is clear is that if we impose delta_prod = 1 is the usual Market clearing
-#and if delta_prod=0.3 to clear the market frims shoud demand more labor,
-#So in principle should be fine
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=delta_sort, geom="line") + xlab("x") + ylab("y") 
 #Plot C_A
@@ -253,10 +297,31 @@ Chi_1g_plot = function(i) Chi_1g(w0=2, w1=0.25,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=Chi_0g_plot, geom="line", aes(colour = "Chi_0g_plot")) + xlab("x") + 
   ylab("y") + stat_function(fun=Chi_1g_plot, geom="line",aes(colour = "Chi_1g_plot"))  
-
-
-
-
+#PlotEvolution of Expected medical expenditure across i under Advantageous selection
+M_plot = function(i) M(w0=2, w1=0.25,i)
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
+  stat_function(fun=M_plot, geom="line", aes(colour = "M_plot")) + 
+  xlab("x") +  ylab("y")
+#Plot Labor average productivity
+gamma_prod_bar_0_plot = function(i) gamma_prod_bar_0(w0=2, w1=0.25,i)
+gamma_prod_bar_1_plot = function(i) gamma_prod_bar_1(w0=2, w1=0.25,i)
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
+  stat_function(fun=gamma_prod_bar_0_plot, geom="line",  aes(colour = "gamma_0")) + 
+  xlab("x") +  ylab("y") + stat_function(fun=gamma_prod_bar_1_plot, geom="line",
+                aes(colour = "gamma_1")) 
+#Plot effective wages and prices
+#Be careful here, for some wages the effective wages wont be well defined, 
+#because the endogenous proportion is computed to be the equilibrium one,
+#and depends on aggregate Labor suply, that can be corner, thus, the proportion 
+#is not well defined if supply is 0 for example.
+w_hat0_plot = function(i) w_hat0(w0=2, w1=0.25,i)
+w_hat1_plot = function(i) w_hat1(w0=2, w1=0.25,i)
+R_hat_plot = function(i) R_hat(R = 1,i)
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
+  stat_function(fun=w_hat0_plot, geom="line",  aes(colour = "w_hat0")) + 
+  xlab("x") +  ylab("y") + stat_function(fun=w_hat1_plot, geom="line",
+                                         aes(colour = "w_hat1")) + 
+  stat_function(fun=R_hat_plot, geom="line",aes(colour = "R_hat"))
 
 
 
