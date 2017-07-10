@@ -9,15 +9,12 @@ library(dplyr)
 library(reshape2)
 library(ggfortify)
 library(data.table)
-library(RMySQL)
 library(plotly)
 library(latex2exp)
 library(truncnorm)
-Sys.setenv("plotly_username"="tlarrouc")
-Sys.setenv("plotly_api_key"="bdqUsPxMwTYk9lI7KmY4")
-dir = '~/Dropbox/Technology/Codes/Robots/'
+#Change directory
+dir = '~/Dropbox/Technology/Codes/Technology_Health/'
 setwd(dir)
-
 
 # Parameters --------------------------------------------------------------
 #Household 
@@ -194,6 +191,25 @@ Chi_1g = function(w0,w1,i){
   aux = delta_sort(i)*(L1_s('g',w0,w1)/(L1_s('g',w0,w1) + L1_s('b',w0,w1)))
   return(aux)
 }
+#Expected expenditure shock
+E_m = function(h){
+  integrand_exp = function(m){ #Creating a function that a returns a vectorized integrand
+    aux = vector(length = length(m))
+    if(h == 'g'){ #If healthy worker
+      for(i in 1:length(m)){
+        aux[i] = m[i]*h_g(m[i]) #integrand of expectation healty, for each medical shock
+      }
+    }
+    else{
+      for(i in 1:length(m)){
+        aux[i] = m[i]*h_b(m[i]) #integrand of expectation unhealty, for each medical shock
+      }
+    }
+    return(aux)
+  }
+  integral = integrate(integrand_exp, lower = m_L, upper = m_F)
+  return(integral$value) #return just the value of the inetgral
+}
 #Expected firm's medical expenditure
 M = function(w0,w1,i){
   aux = (E_m('g')*Chi_1g(w0,w1,i)+E_m('b')*(1-Chi_1g(w0,w1,i)))/l1_s(w1)
@@ -240,7 +256,7 @@ p_k = function(R,i){
   return(aux)
 }
 #Conditional output function without health insurance
-y_hat0 = function(w0,w1,i,Y){
+y_0 = function(w0,w1,i,Y){
   p0i = p_0(w0,w1,i)
   zetai = zeta_elas(i)
   w_hat0i = w_hat0(w0,w1,i)
@@ -248,7 +264,7 @@ y_hat0 = function(w0,w1,i,Y){
   return(aux)
 }
 #Conditional output function with health insurance
-y_hat1 = function(w0,w1,i,Y){
+y_1 = function(w0,w1,i,Y){
   p1i = p_1(w0,w1,i)
   zetai = zeta_elas(i)
   w_hat1i = w_hat1(w0,w1,i)
@@ -256,13 +272,55 @@ y_hat1 = function(w0,w1,i,Y){
   return(aux)
 }
 #Conditional output function with capital
-y_hatk = function(R,i,Y){
+y_k = function(R,i,Y){
   pki = p_k(R,i)
   zetai = zeta_elas(i)
   R_hati = R_hat(R,i)
   aux = (Y*((sigma-1)/sigma)^sigma)*((B(i)*(eta*pki^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(R_hati + psi*pki^zetai))^sigma
   return(aux)
 }
+#Conditional effective labor wihout health insurance 
+l_hat0 = function(w0,w1,i,Y){
+  zetai = zeta_elas(i)
+  p0i = p_0(w0,w1,i)
+  aux = y_0(w0,w1,i,Y)/(B(i)*(eta*p0i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))
+  return(aux)
+}
+#Conditional effective labor with health insurance 
+l_hat1 = function(w0,w1,i,Y){
+  zetai = zeta_elas(i)
+  p1i = p_1(w0,w1,i)
+  aux = y_1(w0,w1,i,Y)/(B(i)*(eta*p1i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))
+  return(aux)
+}
+#Conditional capital 
+k = function(R,i,Y){
+  zetai = zeta_elas(i)
+  pki = p_k(R,i)
+  aux = y_k(R,i,Y)/(B(i)*(eta*pki^(zetai-1)+(1-eta))^(zetai/(zetai-1)))
+  return(aux)
+} 
+#Conditional intermediates without health insurance
+q_0 = function(w0,w1,i,Y){
+  zetai = zeta_elas(i)
+  p0i = p_0(w0,w1,i)
+  aux = (y_0(w0,w1,i,Y)*p0i^zetai)/(B(i)*(eta*p0i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))
+  return(aux)
+} 
+#Conditional intermediates with health insurance
+q_1 = function(w0,w1,i,Y){
+  zetai = zeta_elas(i)
+  p1i = p_1(w0,w1,i)
+  aux = (y_1(w0,w1,i,Y)*p1i^zetai)/(B(i)*(eta*p1i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))
+  return(aux)
+} 
+#Conditional intermediates with capital
+q_k = function(R,i,Y){
+  zetai = zeta_elas(i)
+  pki = p_k(R,i)
+  aux = (y_k(R,i,Y)*pki^zetai)/(B(i)*(eta*pki^(zetai-1)+(1-eta))^(zetai/(zetai-1)))
+  return(aux)
+} 
 
 # NOTES --------------------------------------------------------------------
 #We can get advantageous selection for some wages and Adverse selection for others
@@ -270,6 +328,9 @@ y_hatk = function(R,i,Y){
 #Adverse Sel The question is what happens in equilibrium!
 #We can calculate the expectations analitically too to be faster
 #Should the Normalizing constant B depend on i too ? It is in the code nut not in the document
+#One problem of the code is that whenever wages are such that there is no Labor supply
+#for one of the contracts, then the problem of the firm for that contract is not 
+#well defined, because Chi is not well defined.
 
 # Plots -------------------------------------------------------------------
 #Plot to show that FOSD in Assumption 1 holds for this case
@@ -322,9 +383,16 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +
   xlab("x") +  ylab("y") + stat_function(fun=w_hat1_plot, geom="line",
                                          aes(colour = "w_hat1")) + 
   stat_function(fun=R_hat_plot, geom="line",aes(colour = "R_hat"))
-
-
-
-
+#Plot conditional labor demanded and capital
+#If the medical expenditure is too big, then for health insurance, seems almost 
+#like flat, although it is increasing, showing that Proposition 8 and 9 hold
+#k should be flat if z_prod(i)=constant.
+l_0d_plot = function(i) l_hat0(w0=2,w1=0.25,i,Y=10)/gamma_prod_bar_0(w0=2,w1=0.25,i)
+l_1d_plot = function(i) l_hat1(w0=2,w1=0.25,i,Y=10)/gamma_prod_bar_1(w0=2,w1=0.25,i)
+k_plot = function(i) k(R=1,i,Y=10)
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +  xlab("x") +  ylab("y") + 
+  stat_function(fun=l_0d_plot, geom="line",  aes(colour = "l_0d")) + 
+  stat_function(fun=l_1d_plot, geom="line",  aes(colour = "l_1d")) +
+  stat_function(fun=k_plot, geom="line",  aes(colour = "k"))
 
 
