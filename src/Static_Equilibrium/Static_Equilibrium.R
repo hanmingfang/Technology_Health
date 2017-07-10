@@ -29,8 +29,8 @@ mu_g = 3            #Mean of theta for healthy workers
 mu_b = 1.001        #Mean of theta for healthy workers
 sd_g = 1            #Standard deviation of theta for healthy workers
 sd_b = 1            #Standard deviation of theta for unhealthy workers
-rate_g = 1          #Rate for exponential distribution for medical exp. healthy workers  
-rate_b = 0.5        #Rate for exponential distribution for medical exp. unhealthy workers
+rate_g = 2          #Rate for exponential distribution for medical exp. healthy workers  
+rate_b = 1        #Rate for exponential distribution for medical exp. unhealthy workers
 util_min = 0.001    #Minimum consumption minus labor effort a household can have (can't be 0 or blows up)
 #Firm
 N = 1               #Range of tasks (upper limit)
@@ -39,11 +39,11 @@ rho = 0.8           #Relative labor productivity of unhealthy workers
 psi = 1             #Price of intermediates
 sigma = 2           #Elasticity of substitution between tasks
 zeta = 2            #Elasticity of substitution between factors (if fixed), just to define zeta_elas
-C_IN = 10           #Health Insurance Fixed Cost
+C_IN = 0.5          #Health Insurance Fixed Cost
 A = 1               #Parameter in labor productivity
 lambda_d = 1        #Parameter in sorting function
 alpha_d = 1         #Parameter in sorting function
-D = 1               #Parameter in Automation Cost function
+D = 1              #Parameter in Automation Cost function
 
 # Primitive Functions ---------------------------------------------------------------
 #Distributions
@@ -102,7 +102,8 @@ B = function(i){
 }
 #Automation Fixed Cost
 C_A = function(i){
-  aux = exp(D*i)
+  aux = 0.1*exp(D*i)
+  #aux = 0
   return(aux)
 }
 
@@ -328,20 +329,54 @@ X_tilde = function(w0,w1,Y){
   p_1i = function(i) p_1(w0=w0,w1=w1,i)
   w_hat0i = function(i) w_hat0(w0=w0,w1=w1,i)
   w_hat1i = function(i) w_hat1(w0=w0,w1=w1,i)
-  RHS1 = function(i) (((eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i+psi*p_1i(i)^zeta_elas(i)))^(sigma-1)
-  RHS0 = function(i) (((eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i+psi*p_0i(i)^zeta_elas(i)))^(sigma-1)
+  RHS1 = function(i) (((eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i(i)+psi*p_1i(i)^zeta_elas(i)))^(sigma-1)
+  RHS0 = function(i) (((eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i(i)+psi*p_0i(i)^zeta_elas(i)))^(sigma-1)
   
-  fun = function (i) LHS(i)-RHS1(i)+RHS0(i)   #This should be a  decreasing   function of i
-  #if(E_u0(theta_L,h,w0) - u1(theta_L,h,w1) < 0){aux = theta_L} #If at lower bound is negative
-  #else if(E_u0(theta_H,h,w0) - u1(theta_H,h,w1) > 0){aux = theta_H}
-  #else{aux = uniroot(fun, c(initial,final), tol = 1e-13, extendInt = "downX")$root}  #Get the root,
-  aux = uniroot(fun, c(initial,final), tol = 1e-13, extendInt = "downX")$root
-  #downX is to tell that is decresing on theta, so can look further than the specified range, 
-  #although Im not using this given the boudary cases
+  fun = function (i) LHS(i)-RHS1(i)+RHS0(i)   #This should be a  decreasing   function of i (but depends on the me
+  #dical expenditure)
+  initial = N-1 #Lower bound for i
+  final = N #Upper boud for i
+  #TODO: include boundary cases later
+  aux = uniroot(fun, c(initial,final), tol = 1e-13)$root
   return(aux) 
+}
+#Indifference threshold between capital and not insurance
+I_tilde0 = function(w0,w1,R,Y){
+  LHS = function(i) C_A(i)/(((B(i)*(sigma-1)/sigma)^(sigma-1))*Y/sigma)
+  p_0i = function(i) p_0(w0=w0,w1=w1,i)
+  p_ki = function(i) p_k(R=R,i)
+  w_hat0i = function(i) w_hat0(w0=w0,w1=w1,i)
+  R_hati = function(i) R_hat(R=R,i)
+  RHSk = function(i) (((eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i)+psi*p_ki(i)^zeta_elas(i)))^(sigma-1)
+  RHS0 = function(i) (((eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i(i)+psi*p_0i(i)^zeta_elas(i)))^(sigma-1)
   
+  fun = function (i) LHS(i)-RHSk(i)+RHS0(i) 
+  initial = N-1 #Lower bound for i
+  final = N #Upper boud for i
+  #TODO: include boundary cases later
+  aux = uniroot(fun, c(initial,final), tol = 1e-5)$root
+  return(aux) 
+}
+#Indifference threshold between capital and insurance
+I_tilde1 = function(w0,w1,R,Y){
+  LHS = function(i) (C_IN-C_A(i))/(((B(i)*(sigma-1)/sigma)^(sigma-1))*Y/sigma)
+  p_1i = function(i) p_1(w0=w0,w1=w1,i)
+  p_ki = function(i) p_k(R=R,i)
+  w_hat1i = function(i) w_hat1(w0=w0,w1=w1,i)
+  R_hati = function(i) R_hat(R=R,i)
+  RHSk = function(i) (((eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i)+psi*p_ki(i)^zeta_elas(i)))^(sigma-1)
+  RHS1 = function(i) (((eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i(i)+psi*p_1i(i)^zeta_elas(i)))^(sigma-1)
+  
+  fun = function (i) LHS(i)-RHS1(i)+RHSk(i) #Different sign than before (consistent with the document)
+  initial = N-1 #Lower bound for i
+  final = N #Upper boud for i
+  #TODO: include boundary cases later
+  aux = uniroot(fun, c(initial,final), tol = 1e-5)$root
+  return(aux) 
 }
 # NOTES --------------------------------------------------------------------
+#How do we specify the reservation utility problem? IN the notse gives 0, but 
+#has to be bigger than that.
 #We can get advantageous selection for some wages and Adverse selection for others
 #if we take (w0,w1)=(2,0.25) we get Advantageous Sel, and if (w0,w1)=(2,1) we get 
 #Adverse Sel The question is what happens in equilibrium!
@@ -350,6 +385,9 @@ X_tilde = function(w0,w1,Y){
 #One problem of the code is that whenever wages are such that there is no Labor supply
 #for one of the contracts, then the problem of the firm for that contract is not 
 #well defined, because Chi is not well defined.
+#Effective wages do not cross! It seems that regardless of rho, effective wage approaches
+#assymptotically to 0 and they never cross, just get closer and closer (across i).
+
 
 # Plots -------------------------------------------------------------------
 #Plot to show that FOSD in Assumption 1 holds for this case
@@ -369,22 +407,23 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +
 #Plot C_A
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=C_A , geom="line") + xlab("x") + ylab("y") 
-#Plot Chi_0g and Chi_1g for advantageous selection (w0,w1)=(2,0.25)
+#Plot Chi_0g and Chi_1g for advantageous selection (w0,w1)=(2,0.25) (for rates=1 and 0.5)
 #We can observe in this case that as we have advantageous selection, 
 #then Proposition 6 is verified.
-Chi_0g_plot = function(i) Chi_0g(w0=2, w1=0.25,i)
-Chi_1g_plot = function(i) Chi_1g(w0=2, w1=0.25,i)
+#In the case of rates (2,1), then  (w0,w1)=(2,1) works fine
+Chi_0g_plot = function(i) Chi_0g(w0=2, w1=0.5,i)
+Chi_1g_plot = function(i) Chi_1g(w0=2, w1=0.5,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=Chi_0g_plot, geom="line", aes(colour = "Chi_0g_plot")) + xlab("x") + 
   ylab("y") + stat_function(fun=Chi_1g_plot, geom="line",aes(colour = "Chi_1g_plot"))  
 #PlotEvolution of Expected medical expenditure across i under Advantageous selection
-M_plot = function(i) M(w0=2, w1=0.25,i)
+M_plot = function(i) M(w0=2, w1=0.5,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=M_plot, geom="line", aes(colour = "M_plot")) + 
   xlab("x") +  ylab("y")
 #Plot Labor average productivity
-gamma_prod_bar_0_plot = function(i) gamma_prod_bar_0(w0=2, w1=0.25,i)
-gamma_prod_bar_1_plot = function(i) gamma_prod_bar_1(w0=2, w1=0.25,i)
+gamma_prod_bar_0_plot = function(i) gamma_prod_bar_0(w0=2, w1=0.5,i)
+gamma_prod_bar_1_plot = function(i) gamma_prod_bar_1(w0=2, w1=0.5,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=gamma_prod_bar_0_plot, geom="line",  aes(colour = "gamma_0")) + 
   xlab("x") +  ylab("y") + stat_function(fun=gamma_prod_bar_1_plot, geom="line",
@@ -394,9 +433,9 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +
 #because the endogenous proportion is computed to be the equilibrium one,
 #and depends on aggregate Labor suply, that can be corner, thus, the proportion 
 #is not well defined if supply is 0 for example.
-w_hat0_plot = function(i) w_hat0(w0=2, w1=0.25,i)
-w_hat1_plot = function(i) w_hat1(w0=2, w1=0.25,i)
-R_hat_plot = function(i) R_hat(R = 1,i)
+w_hat0_plot = function(i) w_hat0(w0=2, w1=0.5,i)
+w_hat1_plot = function(i) w_hat1(w0=2, w1=0.5,i)
+R_hat_plot = function(i) R_hat(R = 1.5,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=w_hat0_plot, geom="line",  aes(colour = "w_hat0")) + 
   xlab("x") +  ylab("y") + stat_function(fun=w_hat1_plot, geom="line",
