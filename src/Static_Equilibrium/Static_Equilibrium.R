@@ -321,7 +321,26 @@ q_k = function(R,i,Y){
   aux = (y_k(R,i,Y)*pki^zetai)/(B(i)*(eta*pki^(zetai-1)+(1-eta))^(zetai/(zetai-1)))
   return(aux)
 } 
-
+#Indifference threshold between insurance and not insurance
+X_tilde = function(w0,w1,Y){
+  LHS = function(i) C_IN/(((B(i)*(sigma-1)/sigma)^(sigma-1))*Y/sigma)
+  p_0i = function(i) p_0(w0=w0,w1=w1,i)
+  p_1i = function(i) p_1(w0=w0,w1=w1,i)
+  w_hat0i = function(i) w_hat0(w0=w0,w1=w1,i)
+  w_hat1i = function(i) w_hat1(w0=w0,w1=w1,i)
+  RHS1 = function(i) (((eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i+psi*p_1i(i)^zeta_elas(i)))^(sigma-1)
+  RHS0 = function(i) (((eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i+psi*p_0i(i)^zeta_elas(i)))^(sigma-1)
+  
+  fun = function (i) LHS(i)-RHS1(i)+RHS0(i)   #This should be a  decreasing   function of i
+  #if(E_u0(theta_L,h,w0) - u1(theta_L,h,w1) < 0){aux = theta_L} #If at lower bound is negative
+  #else if(E_u0(theta_H,h,w0) - u1(theta_H,h,w1) > 0){aux = theta_H}
+  #else{aux = uniroot(fun, c(initial,final), tol = 1e-13, extendInt = "downX")$root}  #Get the root,
+  aux = uniroot(fun, c(initial,final), tol = 1e-13, extendInt = "downX")$root
+  #downX is to tell that is decresing on theta, so can look further than the specified range, 
+  #although Im not using this given the boudary cases
+  return(aux) 
+  
+}
 # NOTES --------------------------------------------------------------------
 #We can get advantageous selection for some wages and Adverse selection for others
 #if we take (w0,w1)=(2,0.25) we get Advantageous Sel, and if (w0,w1)=(2,1) we get 
