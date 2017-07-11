@@ -390,6 +390,8 @@ I_tilde1 = function(w0,w1,R,Y){
 
 
 # Plots -------------------------------------------------------------------
+dir = '~/Dropbox/Technology/Codes/Technology_Health/plots/'
+setwd(dir)
 #Plot to show that FOSD in Assumption 1 holds for this case
 ggplot(data.frame(x=c(0, 15)), aes(x=x)) + 
   stat_function(fun=H_g, geom="line", aes(colour = "H_g")) + xlab("x") + 
@@ -440,7 +442,9 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +
   stat_function(fun=w_hat0_plot, geom="line",  aes(colour = "w_hat0")) + 
   xlab("x") +  ylab("y") + stat_function(fun=w_hat1_plot, geom="line",
                                          aes(colour = "w_hat1")) + 
-  stat_function(fun=R_hat_plot, geom="line",aes(colour = "R_hat"))
+  stat_function(fun=R_hat_plot, geom="line",aes(colour = "R_hat")) +
+  ggtitle("(w_0,w_1)=(2,0.5)")
+ggsave(file="effective_wages05.pdf", width=8, height=5)
 #Plot conditional labor demanded and capital
 #If the medical expenditure is too big, then for health insurance, seems almost 
 #like flat, although it is increasing, showing that Proposition 8 and 9 hold
