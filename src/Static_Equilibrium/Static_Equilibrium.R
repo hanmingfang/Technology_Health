@@ -421,19 +421,22 @@ Chi_0g_plot = function(i) Chi_0g(w0=w0, w1=w1,i)
 Chi_1g_plot = function(i) Chi_1g(w0=w0, w1=w1,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=Chi_0g_plot, geom="line", aes(colour = "Chi_0g")) + xlab("i") + 
-  ylab("") + stat_function(fun=Chi_1g_plot, geom="line",aes(colour = "Chi_1g"))  
+  ylab("") + stat_function(fun=Chi_1g_plot, geom="line",aes(colour = "Chi_1g"))
+ggsave(file="endogenous_proportion_healthy_experiment.pdf", width=8, height=5)
 #PlotEvolution of Expected medical expenditure across i under Advantageous selection
 M_plot = function(i) M(w0=w0, w1=w1,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=M_plot, geom="line", aes(colour = "M")) + 
   xlab("i") +  ylab("")
+ggsave(file="expected_medical_expenditure_experiment.pdf", width=8, height=5)
 #Plot Labor average productivity
 gamma_prod_bar_0_plot = function(i) gamma_prod_bar_0(w0=w0, w1=w1,i)
 gamma_prod_bar_1_plot = function(i) gamma_prod_bar_1(w0=w0, w1=w1,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=gamma_prod_bar_0_plot, geom="line",  aes(colour = "gamma_bar0")) + 
   xlab("i") +  ylab("") + stat_function(fun=gamma_prod_bar_1_plot, geom="line",
-                aes(colour = "gamma_bar1")) 
+                aes(colour = "gamma_bar1"))
+ggsave(file="average_labor_productivity_experiment.pdf", width=8, height=5)
 #Plot effective wages and prices
 #Be careful here, for some wages the effective wages wont be well defined, 
 #because the endogenous proportion is computed to be the equilibrium one,
