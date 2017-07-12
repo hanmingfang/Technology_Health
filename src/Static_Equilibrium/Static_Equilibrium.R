@@ -1,4 +1,4 @@
-#Solve for static equilibrium
+#Solve for static equilibrium (Less risk averse households)
 
 # Libraries ---------------------------------------------------------------
 
@@ -21,27 +21,28 @@ setwd(dir)
 xi = 0.455          #Utility function
 phi = 1             #Cost of labor effort  
 lambda_g = 0.5      #Measure healthy workers
-theta_L = 1.001     #Domain for theta
-theta_H = 4
+theta_L = 0         #Domain for theta
+theta_H = 10
 m_L = 0             #Domain for medical expenditure shocks
 m_F = Inf
-mu_g = 3            #Mean of theta for healthy workers
-mu_b = 1.001        #Mean of theta for healthy workers
+mu_g = 2            #Mean of theta for healthy workers
+mu_b = 0            #Mean of theta for healthy workers
 sd_g = 1            #Standard deviation of theta for healthy workers
 sd_b = 1            #Standard deviation of theta for unhealthy workers
-rate_g = 2          #Rate for exponential distribution for medical exp. healthy workers  
+rate_g = 2.5          #Rate for exponential distribution for medical exp. healthy workers  
 rate_b = 1        #Rate for exponential distribution for medical exp. unhealthy workers
 util_min = 0.001    #Minimum consumption minus labor effort a household can have (can't be 0 or blows up)
 #Firm
 N = 1               #Range of tasks (upper limit)
 eta = 0.5           #Distribution parameter of the CES
-rho = 0.8           #Relative labor productivity of unhealthy workers
+rho = 0           #Relative labor productivity of unhealthy workers
 psi = 1             #Price of intermediates
 sigma = 2           #Elasticity of substitution between tasks
 zeta = 2            #Elasticity of substitution between factors (if fixed), just to define zeta_elas
 C_IN = 0.5          #Health Insurance Fixed Cost
 A = 1               #Parameter in labor productivity
-lambda_d = 1        #Parameter in sorting function
+A_0 = 1             #Parameter in labor productivity
+lambda_d = 5        #Parameter in sorting function
 alpha_d = 1         #Parameter in sorting function
 D = 1              #Parameter in Automation Cost function
 
@@ -77,7 +78,7 @@ H_b  = function(m){
 #Parametrized functions
 #Labor productivity 
 gamma_prod = function(i){   
-  aux = exp(A*i)
+  aux = A_0*exp(A*i)
   return(aux)
 }   
 #Sorting of workers
@@ -409,23 +410,20 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +
 #Plot C_A
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=C_A , geom="line") + xlab("x") + ylab("y") 
-#Plot Chi_0g and Chi_1g for advantageous selection (w0,w1)=(2,0.25) (for rates=1 and 0.5)
-#We can observe in this case that as we have advantageous selection, 
-#then Proposition 6 is verified.
-#In the case of rates (2,1), then  (w0,w1)=(2,1) works fine
-Chi_0g_plot = function(i) Chi_0g(w0=2, w1=0.5,i)
-Chi_1g_plot = function(i) Chi_1g(w0=2, w1=0.5,i)
+#Plot Chi_0g and Chi_1g (change wages to get advantageous selection) 
+Chi_0g_plot = function(i) Chi_0g(w0=2, w1=1.5,i)
+Chi_1g_plot = function(i) Chi_1g(w0=2, w1=1.5,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=Chi_0g_plot, geom="line", aes(colour = "Chi_0g_plot")) + xlab("x") + 
   ylab("y") + stat_function(fun=Chi_1g_plot, geom="line",aes(colour = "Chi_1g_plot"))  
 #PlotEvolution of Expected medical expenditure across i under Advantageous selection
-M_plot = function(i) M(w0=2, w1=0.5,i)
+M_plot = function(i) M(w0=2, w1=1.5,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=M_plot, geom="line", aes(colour = "M_plot")) + 
   xlab("x") +  ylab("y")
 #Plot Labor average productivity
-gamma_prod_bar_0_plot = function(i) gamma_prod_bar_0(w0=2, w1=0.5,i)
-gamma_prod_bar_1_plot = function(i) gamma_prod_bar_1(w0=2, w1=0.5,i)
+gamma_prod_bar_0_plot = function(i) gamma_prod_bar_0(w0=2, w1=1.5,i)
+gamma_prod_bar_1_plot = function(i) gamma_prod_bar_1(w0=2, w1=1.5,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=gamma_prod_bar_0_plot, geom="line",  aes(colour = "gamma_0")) + 
   xlab("x") +  ylab("y") + stat_function(fun=gamma_prod_bar_1_plot, geom="line",
@@ -435,16 +433,16 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +
 #because the endogenous proportion is computed to be the equilibrium one,
 #and depends on aggregate Labor suply, that can be corner, thus, the proportion 
 #is not well defined if supply is 0 for example.
-w_hat0_plot = function(i) w_hat0(w0=2, w1=0.5,i)
-w_hat1_plot = function(i) w_hat1(w0=2, w1=0.5,i)
+w_hat0_plot = function(i) w_hat0(w0=2, w1=1.8,i)
+w_hat1_plot = function(i) w_hat1(w0=2, w1=1.8,i)
 R_hat_plot = function(i) R_hat(R = 1.5,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=w_hat0_plot, geom="line",  aes(colour = "w_hat0")) + 
   xlab("x") +  ylab("y") + stat_function(fun=w_hat1_plot, geom="line",
                                          aes(colour = "w_hat1")) + 
   stat_function(fun=R_hat_plot, geom="line",aes(colour = "R_hat")) +
-  ggtitle("(w_0,w_1)=(2,0.5)")
-ggsave(file="effective_wages05.pdf", width=8, height=5)
+  ggtitle("(w_0,w_1)=(2,1.8)")
+ggsave(file="effective_wages_experiment.pdf", width=8, height=5)
 #Plot conditional labor demanded and capital
 #If the medical expenditure is too big, then for health insurance, seems almost 
 #like flat, although it is increasing, showing that Proposition 8 and 9 hold
