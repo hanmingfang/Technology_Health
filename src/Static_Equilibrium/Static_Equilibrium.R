@@ -29,13 +29,13 @@ mu_g = 2            #Mean of theta for healthy workers
 mu_b = 0            #Mean of theta for healthy workers
 sd_g = 1            #Standard deviation of theta for healthy workers
 sd_b = 1            #Standard deviation of theta for unhealthy workers
-rate_g = 2.5          #Rate for exponential distribution for medical exp. healthy workers  
-rate_b = 1        #Rate for exponential distribution for medical exp. unhealthy workers
+rate_g = 2          #Rate for exponential distribution for medical exp. healthy workers  
+rate_b = 1          #Rate for exponential distribution for medical exp. unhealthy workers
 util_min = 0.001    #Minimum consumption minus labor effort a household can have (can't be 0 or blows up)
 #Firm
 N = 1               #Range of tasks (upper limit)
 eta = 0.5           #Distribution parameter of the CES
-rho = 0           #Relative labor productivity of unhealthy workers
+rho = 0.8           #Relative labor productivity of unhealthy workers
 psi = 1             #Price of intermediates
 sigma = 2           #Elasticity of substitution between tasks
 zeta = 2            #Elasticity of substitution between factors (if fixed), just to define zeta_elas
@@ -184,13 +184,15 @@ L1_s = function(h,w0,w1){
   return(aux)
 }
 #Endogenous proportion of healthy workers for no health insurance
+#TODO: Edit this function
 Chi_0g = function(w0,w1,i){
-  aux = delta_sort(i)*(L0_s('g',w0,w1)/(L0_s('g',w0,w1) + L0_s('b',w0,w1)))
+  aux = 1*(L0_s('g',w0,w1)/(L0_s('g',w0,w1) + L0_s('b',w0,w1)))
   return(aux)
 }
 #Endogenous proportion of healthy workers for health insurance
+#TODO: edit this function
 Chi_1g = function(w0,w1,i){
-  aux = delta_sort(i)*(L1_s('g',w0,w1)/(L1_s('g',w0,w1) + L1_s('b',w0,w1)))
+  aux =  exp(2*lambda_d*i - 5*alpha_d)/(1+exp(2*lambda_d*i - 5*alpha_d))*(L1_s('g',w0,w1)/(L1_s('g',w0,w1) + L1_s('b',w0,w1)))
   return(aux)
 }
 #Expected expenditure shock
@@ -223,6 +225,7 @@ gamma_prod_bar_0 = function(w0,w1,i){
   return(aux)
 }
 #Average labor productivity for contract with health insurance
+#TODO: Edit this function later (has to be consistent with the document)
 gamma_prod_bar_1 = function(w0,w1,i){
   aux = gamma_prod(i)*((1-rho)*Chi_1g(w0,w1,i)+rho)
   return(aux)
@@ -393,6 +396,9 @@ I_tilde1 = function(w0,w1,R,Y){
 # Plots -------------------------------------------------------------------
 dir = '~/Dropbox/Technology/Codes/Technology_Health/plots/'
 setwd(dir)
+#Wages to play
+w0 = 2
+w1 = 1
 #Plot to show that FOSD in Assumption 1 holds for this case
 ggplot(data.frame(x=c(0, 15)), aes(x=x)) + 
   stat_function(fun=H_g, geom="line", aes(colour = "H_g")) + xlab("x") + 
@@ -411,44 +417,43 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=C_A , geom="line") + xlab("x") + ylab("y") 
 #Plot Chi_0g and Chi_1g (change wages to get advantageous selection) 
-Chi_0g_plot = function(i) Chi_0g(w0=2, w1=1.5,i)
-Chi_1g_plot = function(i) Chi_1g(w0=2, w1=1.5,i)
+Chi_0g_plot = function(i) Chi_0g(w0=w0, w1=w1,i)
+Chi_1g_plot = function(i) Chi_1g(w0=w0, w1=w1,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=Chi_0g_plot, geom="line", aes(colour = "Chi_0g_plot")) + xlab("x") + 
-  ylab("y") + stat_function(fun=Chi_1g_plot, geom="line",aes(colour = "Chi_1g_plot"))  
+  stat_function(fun=Chi_0g_plot, geom="line", aes(colour = "Chi_0g")) + xlab("i") + 
+  ylab("") + stat_function(fun=Chi_1g_plot, geom="line",aes(colour = "Chi_1g"))  
 #PlotEvolution of Expected medical expenditure across i under Advantageous selection
-M_plot = function(i) M(w0=2, w1=1.5,i)
+M_plot = function(i) M(w0=w0, w1=w1,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=M_plot, geom="line", aes(colour = "M_plot")) + 
-  xlab("x") +  ylab("y")
+  stat_function(fun=M_plot, geom="line", aes(colour = "M")) + 
+  xlab("i") +  ylab("")
 #Plot Labor average productivity
-gamma_prod_bar_0_plot = function(i) gamma_prod_bar_0(w0=2, w1=1.5,i)
-gamma_prod_bar_1_plot = function(i) gamma_prod_bar_1(w0=2, w1=1.5,i)
+gamma_prod_bar_0_plot = function(i) gamma_prod_bar_0(w0=w0, w1=w1,i)
+gamma_prod_bar_1_plot = function(i) gamma_prod_bar_1(w0=w0, w1=w1,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=gamma_prod_bar_0_plot, geom="line",  aes(colour = "gamma_0")) + 
-  xlab("x") +  ylab("y") + stat_function(fun=gamma_prod_bar_1_plot, geom="line",
-                aes(colour = "gamma_1")) 
+  stat_function(fun=gamma_prod_bar_0_plot, geom="line",  aes(colour = "gamma_bar0")) + 
+  xlab("i") +  ylab("") + stat_function(fun=gamma_prod_bar_1_plot, geom="line",
+                aes(colour = "gamma_bar1")) 
 #Plot effective wages and prices
 #Be careful here, for some wages the effective wages wont be well defined, 
 #because the endogenous proportion is computed to be the equilibrium one,
 #and depends on aggregate Labor suply, that can be corner, thus, the proportion 
 #is not well defined if supply is 0 for example.
-w_hat0_plot = function(i) w_hat0(w0=2, w1=1.8,i)
-w_hat1_plot = function(i) w_hat1(w0=2, w1=1.8,i)
+w_hat0_plot = function(i) w_hat0(w0=w0, w1=w1,i)
+w_hat1_plot = function(i) w_hat1(w0=w0, w1=w1,i)
 R_hat_plot = function(i) R_hat(R = 1.5,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=w_hat0_plot, geom="line",  aes(colour = "w_hat0")) + 
-  xlab("x") +  ylab("y") + stat_function(fun=w_hat1_plot, geom="line",
-                                         aes(colour = "w_hat1")) + 
-  stat_function(fun=R_hat_plot, geom="line",aes(colour = "R_hat")) +
-  ggtitle("(w_0,w_1)=(2,1.8)")
+  xlab("i") +  ylab("") + stat_function(fun=w_hat1_plot, geom="line",
+                                         aes(colour = "w_hat1")) +
+  ggtitle("(w0,w1)=(2,1)")
 ggsave(file="effective_wages_experiment.pdf", width=8, height=5)
 #Plot conditional labor demanded and capital
 #If the medical expenditure is too big, then for health insurance, seems almost 
 #like flat, although it is increasing, showing that Proposition 8 and 9 hold
 #k should be flat if z_prod(i)=constant.
-l_0d_plot = function(i) l_hat0(w0=2,w1=0.25,i,Y=10)/gamma_prod_bar_0(w0=2,w1=0.25,i)
-l_1d_plot = function(i) l_hat1(w0=2,w1=0.25,i,Y=10)/gamma_prod_bar_1(w0=2,w1=0.25,i)
+l_0d_plot = function(i) l_hat0(w0=w0,w1=w1,i,Y=10)/gamma_prod_bar_0(w0=w0,w1=w1,i)
+l_1d_plot = function(i) l_hat1(w0=w0,w1=w1,i,Y=10)/gamma_prod_bar_1(w0=w0,w1=w1,i)
 k_plot = function(i) k(R=1,i,Y=10)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +  xlab("x") +  ylab("y") + 
   stat_function(fun=l_0d_plot, geom="line",  aes(colour = "l_0d")) + 
