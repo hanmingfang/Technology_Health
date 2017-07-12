@@ -44,7 +44,7 @@ A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
 lambda_d = 5        #Parameter in sorting function
 alpha_d = 1         #Parameter in sorting function
-D = 1              #Parameter in Automation Cost function
+D = 1               #Parameter in Automation Cost function
 
 # Primitive Functions ---------------------------------------------------------------
 #Distributions
