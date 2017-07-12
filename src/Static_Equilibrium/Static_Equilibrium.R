@@ -32,6 +32,7 @@ sd_b = 1            #Standard deviation of theta for unhealthy workers
 rate_g = 2          #Rate for exponential distribution for medical exp. healthy workers  
 rate_b = 1          #Rate for exponential distribution for medical exp. unhealthy workers
 util_min = 0.001    #Minimum consumption minus labor effort a household can have (can't be 0 or blows up)
+                    #This is not in the same way in the document!
 #Firm
 N = 1               #Range of tasks (upper limit)
 eta = 0.5           #Distribution parameter of the CES
