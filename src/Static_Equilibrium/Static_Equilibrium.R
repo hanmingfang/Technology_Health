@@ -12,6 +12,7 @@ library(data.table)
 library(plotly)
 library(latex2exp)
 library(truncnorm)
+library(profvis)
 #Change directory
 dir = '~/Dropbox/Technology/Codes/Technology_Health/'
 setwd(dir)
@@ -46,6 +47,7 @@ A_0 = 1             #Parameter in labor productivity
 lambda_d = 5        #Parameter in sorting function
 alpha_d = 1         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
+tol = 1e-3          #Tolerance for unitroot, affects computation time
 
 # Primitive Functions ---------------------------------------------------------------
 #Distributions
@@ -167,7 +169,7 @@ theta_ins = function(h,w0,w1){
   fun = function (theta) E_u0(theta,h,w0) - u1(theta,h,w1)   #This is a decreasing function of theta
   if(E_u0(theta_L,h,w0) - u1(theta_L,h,w1) < 0){aux = theta_L} #If at lower bound is negative
   else if(E_u0(theta_H,h,w0) - u1(theta_H,h,w1) > 0){aux = theta_H}
-  else{aux = uniroot(fun, c(initial,final), tol = 1e-13, extendInt = "downX")$root}  #Get the root, 
+  else{aux = uniroot(fun, c(initial,final), tol = tol, extendInt = "downX")$root}  #Get the root, 
   #downX is to tell that is decresing on theta, so can look further than the specified range, 
   #although Im not using this given the boudary cases
     return(aux) 
@@ -226,7 +228,6 @@ gamma_prod_bar_0 = function(w0,w1,i){
   return(aux)
 }
 #Average labor productivity for contract with health insurance
-#TODO: Edit this function later (has to be consistent with the document)
 gamma_prod_bar_1 = function(w0,w1,i){
   aux = gamma_prod(i)*((1-rho)*Chi_1g(w0,w1,i)+rho)
   return(aux)
@@ -337,12 +338,17 @@ X_tilde = function(w0,w1,Y){
   RHS1 = function(i) (((eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i(i)+psi*p_1i(i)^zeta_elas(i)))^(sigma-1)
   RHS0 = function(i) (((eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i(i)+psi*p_0i(i)^zeta_elas(i)))^(sigma-1)
   
-  fun = function (i) LHS(i)-RHS1(i)+RHS0(i)   #This should be a  decreasing   function of i (but depends on the me
+  fun = function (i) LHS(i)-RHS1(i)+RHS0(i)   #This should be a DECREASING   function of i (but depends on the me
   #dical expenditure)
   initial = N-1 #Lower bound for i
   final = N #Upper boud for i
-  #TODO: include boundary cases later
-  aux = uniroot(fun, c(initial,final), tol = 1e-13)$root
+  #Boundary cases
+  if(is.na(w_hat0i(N)) & !is.na(w_hat1i(N))){aux = N-1} #If w_hat0 is NA is because every household works for contract
+  #with insurance, thus X_tilde has to be N-1
+  else if(!is.na(w_hat0i(N)) & is.na(w_hat1i(N))){aux = N}#The opposite than before
+  else if(fun(N)>0){aux = N} #This should be correct given that the function is DECREASING
+  else if(fun(N-1)<0){aux = N-1}
+  else{aux = uniroot(fun, c(initial,final), tol = tol)$root}
   return(aux) 
 }
 #Indifference threshold between capital and not insurance
@@ -355,11 +361,16 @@ I_tilde0 = function(w0,w1,R,Y){
   RHSk = function(i) (((eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i)+psi*p_ki(i)^zeta_elas(i)))^(sigma-1)
   RHS0 = function(i) (((eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i(i)+psi*p_0i(i)^zeta_elas(i)))^(sigma-1)
   
-  fun = function (i) LHS(i)-RHSk(i)+RHS0(i) 
+  fun = function (i) LHS(i)-RHSk(i)+RHS0(i) # Under the assumption that profits conditional on capital are non increasing on i
+  #this function should be INCREASING
   initial = N-1 #Lower bound for i
   final = N #Upper boud for i
-  #TODO: include boundary cases later
-  aux = uniroot(fun, c(initial,final), tol = 1e-5)$root
+  #boundary cases
+  if(is.na(w_hat0i(N))){aux = N} #If w_hat0 is NA is because every household works for contract
+  #with insurance, thus I_tilde0 has to be N (just use capital in this conditional case)
+  else if(fun(N)<0){aux = N} #This should be correct given that the function is INCREASING in this case
+  else if(fun(N-1)>0){aux = N-1}
+  else{aux = uniroot(fun, c(initial,final), tol = tol)$root}
   return(aux) 
 }
 #Indifference threshold between capital and insurance
@@ -372,11 +383,16 @@ I_tilde1 = function(w0,w1,R,Y){
   RHSk = function(i) (((eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i)+psi*p_ki(i)^zeta_elas(i)))^(sigma-1)
   RHS1 = function(i) (((eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i(i)+psi*p_1i(i)^zeta_elas(i)))^(sigma-1)
   
-  fun = function (i) LHS(i)-RHS1(i)+RHSk(i) #Different sign than before (consistent with the document)
+  fun = function (i) LHS(i)-RHS1(i)+RHSk(i) #Different sign than before (consistent with the document) This function is 
+  #DECREASING
   initial = N-1 #Lower bound for i
-  final = N #Upper boud for i
-  #TODO: include boundary cases later
-  aux = uniroot(fun, c(initial,final), tol = 1e-5)$root
+  final = N #Upper bound for i
+  #boundary cases
+  if(is.na(w_hat1i(N))){aux = N} #If w_hat1 is NA is because every household works for contract
+  #without insurance, thus I_tilde1 has to be N (just use capital in this conditional case)
+  else if(fun(N)>0){aux = N} #This should be correct given that the function is DECREASING in this case
+  else if(fun(N-1)<0){aux = N-1}
+  else{aux = uniroot(fun, c(initial,final), tol = tol)$root}
   return(aux) 
 }
 # NOTES --------------------------------------------------------------------
@@ -400,6 +416,7 @@ setwd(dir)
 #Wages to play
 w0 = 2
 w1 = 1
+R = 1.7
 #Plot to show that FOSD in Assumption 1 holds for this case
 ggplot(data.frame(x=c(0, 15)), aes(x=x)) + 
   stat_function(fun=H_g, geom="line", aes(colour = "H_g")) + xlab("x") + 
@@ -445,12 +462,22 @@ ggsave(file="average_labor_productivity_experiment.pdf", width=8, height=5)
 #is not well defined if supply is 0 for example.
 w_hat0_plot = function(i) w_hat0(w0=w0, w1=w1,i)
 w_hat1_plot = function(i) w_hat1(w0=w0, w1=w1,i)
-R_hat_plot = function(i) R_hat(R = 1.5,i)
+R_hat_plot = function(i) R_hat(R=R,i)
+X = X_tilde(w0,w1,10)
+I0 = I_tilde0(w0,w1,R,10)
+I1 = I_tilde1(w0,w1,R,10)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=w_hat0_plot, geom="line",  aes(colour = "w_hat0")) + 
   xlab("i") +  ylab("") + stat_function(fun=w_hat1_plot, geom="line",
                                          aes(colour = "w_hat1")) +
-  ggtitle("(w0,w1)=(2,1)")
+  stat_function(fun=R_hat_plot, geom="line", aes(colour = "R_hat")) +
+  geom_vline(xintercept = X,linetype=4, colour="black") +
+  geom_vline(xintercept = I0,linetype=3, colour="black") +
+  geom_vline(xintercept = I1,linetype=2, colour="black") +
+  geom_text(mapping = aes(label = "X", y = 0, x = X+0.02),colour="blue") +
+  geom_text(mapping = aes(label = "I0", y = 0, x = I0+0.02),colour="blue") +
+  geom_text(mapping = aes(label = "I1", y = 0, x = I1+0.02),colour="blue") +
+  ggtitle("(w0,w1,R)=(2,1,1.7)")
 ggsave(file="effective_wages_experiment.pdf", width=8, height=5)
 #Plot conditional labor demanded and capital
 #If the medical expenditure is too big, then for health insurance, seems almost 
