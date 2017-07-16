@@ -48,7 +48,7 @@ lambda_d = 5        #Parameter in sorting function
 alpha_d = 1         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
 tol = 1e-3          #Tolerance for unitroot, affects computation time
-
+K = 0.2             #Capital stock in the economy
 # Primitive Functions ---------------------------------------------------------------
 #Distributions
 #Conditional cdf of Households' types
@@ -107,7 +107,6 @@ B = function(i){
 #Automation Fixed Cost
 C_A = function(i){
   aux = 0.1*exp(D*i)
-  #aux = 0
   return(aux)
 }
 
@@ -395,6 +394,111 @@ I_tilde1 = function(w0,w1,R,Y){
   else{aux = uniroot(fun, c(initial,final), tol = tol)$root}
   return(aux) 
 }
+#Excess demand for Capital
+k_excess_d = function(w0,w1,R,Y){
+  I0 = I_tilde0(w0,w1,R,Y)
+  I1 = I_tilde1(w0,w1,R,Y)
+  integrand_k = function(r){ #Creating a function that  returns a vectorized integrand (recieves a vector with 
+    #values to be evaluated at
+    aux = vector(length = length(r))
+    for(i in 1:length(r)){
+        aux[i] = k(R,r[i],Y) #integrand capital demanded, Remember that is r[i]
+    }
+    return(aux)
+  }
+  integral = integrate(integrand_k, lower = N-1, upper = min(I0,I1)) #Bounds specified in the document
+  aux = integral$value-K
+  return(aux)  
+}
+#Excess demand for labor without insurance
+#TODO: CHECK THIS FOR NON INTERIOR CASES
+l0_excess_d = function(w0,w1,R,Y){
+  X = X_tilde(w0,w1,Y)
+  I0 = I_tilde0(w0,w1,R,Y)
+  I1 = I_tilde1(w0,w1,R,Y)
+  if(I0<I1){ #Checking for interior cases
+    integrand_l0 = function(r){ #Creating a function that a returns a vectorized integrand
+      aux = vector(length = length(r))
+      for(i in 1:length(r)){
+        aux[i] = l_hat0(w0,w1,r[i],Y)/gamma_prod_bar_0(w0,w1,r[i]) #integrand of l0 demanded
+      }
+      return(aux)
+    }
+    integral = integrate(integrand_l0, lower = I0, upper = X) #Bounds specified in the document
+    aux = integral$value - (L0_s('g',w0,w1)+L0_s('b',w0,w1)) #subtracting Labor supplied for no insurance
+  }
+  else{aux = 0 - (L0_s('g',w0,w1)+L0_s('b',w0,w1))}#If there is no labor without insurance in equilibrium
+  return(aux)  
+}
+#Excess demand fo labor with insurance
+#TODO: CHECK THIS FOR NON INTERIOR CASES
+l1_excess_d = function(w0,w1,R,Y){
+  X = X_tilde(w0,w1,Y)
+  I0 = I_tilde0(w0,w1,R,Y)
+  I1 = I_tilde1(w0,w1,R,Y)
+  integrand_l1 = function(r){ #Creating a function that a returns a vectorized integrand
+    aux = vector(length = length(r))
+    for(i in 1:length(r)){
+      aux[i] = l_hat1(w0,w1,r[i],Y)/gamma_prod_bar_1(w0,w1,r[i]) #integrand of l1 demanded
+    }
+    return(aux)
+  }
+  integral = integrate(integrand_l1, lower = max(I1,X), upper = N) #Bounds specified in the document
+  aux = integral$value - (L1_s('g',w0,w1)+L1_s('b',w0,w1)) #subtracting Labor supplied for insurance
+  return(aux)  
+}
+#Total consumption good
+#TODO: Include indicator function, boudarie cases and Review
+Y_fun = function(w0,w1,R){
+  #Here we need to get the fix point, or in other words the root
+  X_Y = function(Y) X_tilde(w0,w1,Y)
+  I0_Y = function(Y) I_tilde0(w0,w1,R,Y)
+  I1_Y = function(Y) I_tilde1(w0,w1,R,Y)
+  Y_k = function(Y){
+    integrand_yk = function(r){ #Creating a function that returns a vectorized integrand
+      aux = vector(length = length(r))
+      for(i in 1:length(r)){
+        aux[i] = (y_k(R,r[i],Y))^((sigma-1)/sigma) #integrand of y_k in the consumption good production
+      }
+      return(aux)
+    }
+    integral = integrate(integrand_yk, lower = N-1, upper = min(I1,I0))
+    aux = integral$value
+    return(aux)
+  }
+  Y_0 = function(Y){
+    integrand_y0 = function(r){ #Creating a function that returns a vectorized integrand
+      aux = vector(length = length(r))
+      for(i in 1:length(r)){
+        aux[i] = (y_0(R,r[i],Y))^((sigma-1)/sigma) #integrand of y_0 in the consumption good production
+      }
+      return(aux)
+    }
+    integral = integrate(integrand_y0, lower = I0, upper = X)
+    aux = integral$value
+    return(aux)
+  }
+  Y_1 = function(Y){
+    integrand_y1 = function(r){ #Creating a function that returns a vectorized integrand
+      aux = vector(length = length(r))
+      for(i in 1:length(r)){
+        aux[i] = (y_1(R,r[i],Y))^((sigma-1)/sigma) #integrand of y_1 in the consumption good production
+      }
+      return(aux)
+    }
+    integral = integrate(integrand_y1, lower = max(I1,X), upper = N)
+    aux = integral$value
+    return(aux)
+  }
+  fun = function (Y) Y - (Y_k(Y)+Y_0(Y)+Y_1(Y))^(sigma/(sigma-1))
+  #Can't tell immediately if this function is increasing or decreasing in Y
+  initial = 0 #Lower bound for Y
+  final = Inf #Upper bound for Y
+  aux = uniroot(fun, c(initial,final), tol = tol)$root
+  return(aux) 
+}
+
+
 # NOTES --------------------------------------------------------------------
 #How do we specify the reservation utility problem? IN the notse gives 0, but 
 #has to be bigger than that.
@@ -417,6 +521,8 @@ setwd(dir)
 w0 = 2
 w1 = 1
 R = 1.7
+#Need to specify also total output to play
+Y = 10 
 #Plot to show that FOSD in Assumption 1 holds for this case
 ggplot(data.frame(x=c(0, 15)), aes(x=x)) + 
   stat_function(fun=H_g, geom="line", aes(colour = "H_g")) + xlab("x") + 
@@ -463,9 +569,9 @@ ggsave(file="average_labor_productivity_experiment.pdf", width=8, height=5)
 w_hat0_plot = function(i) w_hat0(w0=w0, w1=w1,i)
 w_hat1_plot = function(i) w_hat1(w0=w0, w1=w1,i)
 R_hat_plot = function(i) R_hat(R=R,i)
-X = X_tilde(w0,w1,10)
-I0 = I_tilde0(w0,w1,R,10)
-I1 = I_tilde1(w0,w1,R,10)
+X = X_tilde(w0,w1,Y)
+I0 = I_tilde0(w0,w1,R,Y)
+I1 = I_tilde1(w0,w1,R,Y)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=w_hat0_plot, geom="line",  aes(colour = "w_hat0")) + 
   xlab("i") +  ylab("") + stat_function(fun=w_hat1_plot, geom="line",
