@@ -449,11 +449,10 @@ l1_excess_d = function(w0,w1,R,Y){
 }
 #Total consumption good
 #TODO: Include indicator function, boudarie cases and Review
-Y_fun = function(w0,w1,R){
-  #Here we need to get the fix point, or in other words the root
-  X_Y = function(Y) X_tilde(w0,w1,Y)
-  I0_Y = function(Y) I_tilde0(w0,w1,R,Y)
-  I1_Y = function(Y) I_tilde1(w0,w1,R,Y)
+Y_excess_s = function(w0,w1,R,Y){
+  X = X_tilde(w0,w1,Y)
+  I0 = I_tilde0(w0,w1,R,Y)
+  I1 = I_tilde1(w0,w1,R,Y)  
   Y_k = function(Y){
     integrand_yk = function(r){ #Creating a function that returns a vectorized integrand
       aux = vector(length = length(r))
@@ -470,19 +469,20 @@ Y_fun = function(w0,w1,R){
     integrand_y0 = function(r){ #Creating a function that returns a vectorized integrand
       aux = vector(length = length(r))
       for(i in 1:length(r)){
-        aux[i] = (y_0(R,r[i],Y))^((sigma-1)/sigma) #integrand of y_0 in the consumption good production
+        aux[i] = (y_0(w0,w1,r[i],Y))^((sigma-1)/sigma) #integrand of y_0 in the consumption good production
       }
       return(aux)
     }
     integral = integrate(integrand_y0, lower = I0, upper = X)
-    aux = integral$value
+    if(I0_Y(Y)<I1_Y(Y)){aux = integral$value}
+    else{aux = 0}
     return(aux)
   }
   Y_1 = function(Y){
     integrand_y1 = function(r){ #Creating a function that returns a vectorized integrand
       aux = vector(length = length(r))
       for(i in 1:length(r)){
-        aux[i] = (y_1(R,r[i],Y))^((sigma-1)/sigma) #integrand of y_1 in the consumption good production
+        aux[i] = (y_1(w0,w1,r[i],Y))^((sigma-1)/sigma) #integrand of y_1 in the consumption good production
       }
       return(aux)
     }
@@ -490,11 +490,7 @@ Y_fun = function(w0,w1,R){
     aux = integral$value
     return(aux)
   }
-  fun = function (Y) Y - (Y_k(Y)+Y_0(Y)+Y_1(Y))^(sigma/(sigma-1))
-  #Can't tell immediately if this function is increasing or decreasing in Y
-  initial = 0 #Lower bound for Y
-  final = Inf #Upper bound for Y
-  aux = uniroot(fun, c(initial,final), tol = tol)$root
+  aux = Y - (Y_k(Y)+Y_0(Y)+Y_1(Y))^(sigma/(sigma-1))
   return(aux) 
 }
 
@@ -596,5 +592,13 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +  xlab("x") +  ylab("y") +
   stat_function(fun=l_0d_plot, geom="line",  aes(colour = "l_0d")) + 
   stat_function(fun=l_1d_plot, geom="line",  aes(colour = "l_1d")) +
   stat_function(fun=k_plot, geom="line",  aes(colour = "k"))
-
+#Plot market clearing for Y
+#Just testing
+Y_seq = seq(from=0, to=20, by=1)
+excess_Y_vec = vector(length=length(Y_seq))
+for(j in Y_seq){
+  excess_Y_vec[j] = fun(j)
+}
+plot(x=Y_seq, y=excess_Y_vec)
+  
 
