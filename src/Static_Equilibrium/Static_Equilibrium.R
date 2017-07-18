@@ -494,7 +494,7 @@ Y_excess_s = function(w0,w1,R,Y){
   return(aux) 
 }
 
-
+#bla
 # NOTES --------------------------------------------------------------------
 #How do we specify the reservation utility problem? IN the notse gives 0, but 
 #has to be bigger than that.
