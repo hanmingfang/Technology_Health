@@ -85,8 +85,10 @@ gamma_prod = function(i){
   return(aux)
 }   
 #Sorting of workers
+#TODO: edit this function
 delta_sort = function(i){
-  exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d))
+  aux = exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d))
+  return(aux)
 }
 #Capital productivity
 z_prod = function(i){
