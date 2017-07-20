@@ -15,6 +15,7 @@ library(truncnorm)
 library(profvis)
 library(numDeriv)
 library(rootSolve)
+library(microbenchmark)
 #Change directory
 dir = '~/Dropbox/Technology/Codes/Technology_Health/'
 setwd(dir)
@@ -35,7 +36,7 @@ sd_b = 1            #Standard deviation of theta for unhealthy workers
 rate_g = 2          #Rate for exponential distribution for medical exp. healthy workers  
 rate_b = 1          #Rate for exponential distribution for medical exp. unhealthy workers
 util_min = 0.001    #Minimum consumption minus labor effort a household can have (can't be 0 or blows up)
-                    #This is not in the same way in the document!
+#This is not in the same way in the document!
 #Firm
 N = 1               #Range of tasks (upper limit)
 eta = 0.5           #Distribution parameter of the CES
@@ -46,8 +47,8 @@ zeta = 2            #Elasticity of substitution between factors (if fixed), just
 C_IN = 0.5          #Health Insurance Fixed Cost
 A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
-lambda_d = 5        #Parameter in sorting function
-alpha_d = 1         #Parameter in sorting function
+lambda_d = 10        #Parameter in sorting function
+alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
 tol = 1e-3          #Tolerance for unitroot, affects computation time
 K = 0.2             #Capital stock in the economy
@@ -175,7 +176,7 @@ theta_ins = function(h,w0,w1){
   else{aux = uniroot(fun, c(initial,final), tol = tol, extendInt = "downX")$root}  #Get the root, 
   #downX is to tell that is decresing on theta, so can look further than the specified range, 
   #although Im not using this given the boudary cases
-    return(aux) 
+  return(aux) 
 }
 #Aggregate labor supply for no insurance
 L0_s = function(h,w0,w1){
@@ -191,6 +192,7 @@ L1_s = function(h,w0,w1){
 }
 #Endogenous proportion of healthy workers for no health insurance
 #TODO: Edit this function
+#Assign beliefs out of path
 Chi_0g = function(w0,w1,i){
   aux = 1*(L0_s('g',w0,w1)/(L0_s('g',w0,w1) + L0_s('b',w0,w1)))
   return(aux)
@@ -198,27 +200,16 @@ Chi_0g = function(w0,w1,i){
 #Endogenous proportion of healthy workers for health insurance
 #TODO: edit this function
 Chi_1g = function(w0,w1,i){
-  aux =  exp(2*lambda_d*i - 5*alpha_d)/(1+exp(2*lambda_d*i - 5*alpha_d))*(L1_s('g',w0,w1)/(L1_s('g',w0,w1) + L1_s('b',w0,w1)))
+  aux =  delta_sort(i)*(L1_s('g',w0,w1)/(L1_s('g',w0,w1) + L1_s('b',w0,w1)))
   return(aux)
 }
+#Assign beliefs out of path
 #Expected expenditure shock
+#TODO: edit this function, just for Exponential now
 E_m = function(h){
-  integrand_exp = function(m){ #Creating a function that a returns a vectorized integrand
-    aux = vector(length = length(m))
-    if(h == 'g'){ #If healthy worker
-      for(i in 1:length(m)){
-        aux[i] = m[i]*h_g(m[i]) #integrand of expectation healty, for each medical shock
-      }
-    }
-    else{
-      for(i in 1:length(m)){
-        aux[i] = m[i]*h_b(m[i]) #integrand of expectation unhealty, for each medical shock
-      }
-    }
-    return(aux)
-  }
-  integral = integrate(integrand_exp, lower = m_L, upper = m_F)
-  return(integral$value) #return just the value of the inetgral
+  if(h == 'g'){aux = 1/rate_g}
+  else{aux = 1/rate_b}
+  return(aux)
 }
 #Expected firm's medical expenditure
 M = function(w0,w1,i){
@@ -334,10 +325,23 @@ q_k = function(R,i,Y){
 #Indifference threshold between insurance and not insurance
 X_tilde = function(w0,w1,Y){
   LHS = function(i) C_IN/(((B(i)*(sigma-1)/sigma)^(sigma-1))*Y/sigma)
-  p_0i = function(i) p_0(w0=w0,w1=w1,i)
-  p_1i = function(i) p_1(w0=w0,w1=w1,i)
-  w_hat0i = function(i) w_hat0(w0=w0,w1=w1,i)
-  w_hat1i = function(i) w_hat1(w0=w0,w1=w1,i)
+  #Do not call the same function more than one time if is not neccesary
+  L0_s_g_var = L0_s('g',w0,w1)
+  L0_s_b_var = L0_s('b',w0,w1)
+  Chi_0gi = function(i) 1*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
+  gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
+  w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
+  p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
+  ###
+  L1_s_g_var = L1_s('g',w0,w1)
+  L1_s_b_var = L1_s('b',w0,w1)
+  Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+  gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
+  E_mg = E_m('g')
+  E_mb = E_m('b')
+  Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
+  w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
+  p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
   RHS1 = function(i) (((eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i(i)+psi*p_1i(i)^zeta_elas(i)))^(sigma-1)
   RHS0 = function(i) (((eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i(i)+psi*p_0i(i)^zeta_elas(i)))^(sigma-1)
   
@@ -357,10 +361,16 @@ X_tilde = function(w0,w1,Y){
 #Indifference threshold between capital and not insurance
 I_tilde0 = function(w0,w1,R,Y){
   LHS = function(i) C_A(i)/(((B(i)*(sigma-1)/sigma)^(sigma-1))*Y/sigma)
-  p_0i = function(i) p_0(w0=w0,w1=w1,i)
-  p_ki = function(i) p_k(R=R,i)
-  w_hat0i = function(i) w_hat0(w0=w0,w1=w1,i)
-  R_hati = function(i) R_hat(R=R,i)
+  #Do not call the same function more than one time if is not neccesary
+  L0_s_g_var = L0_s('g',w0,w1)
+  L0_s_b_var = L0_s('b',w0,w1)
+  Chi_0gi = function(i) 1*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
+  gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
+  w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
+  p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
+  ###
+  R_hati = function(i) R/z_prod(i)
+  p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
   RHSk = function(i) (((eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i)+psi*p_ki(i)^zeta_elas(i)))^(sigma-1)
   RHS0 = function(i) (((eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i(i)+psi*p_0i(i)^zeta_elas(i)))^(sigma-1)
   
@@ -379,10 +389,19 @@ I_tilde0 = function(w0,w1,R,Y){
 #Indifference threshold between capital and insurance
 I_tilde1 = function(w0,w1,R,Y){
   LHS = function(i) (C_IN-C_A(i))/(((B(i)*(sigma-1)/sigma)^(sigma-1))*Y/sigma)
-  p_1i = function(i) p_1(w0=w0,w1=w1,i)
-  p_ki = function(i) p_k(R=R,i)
-  w_hat1i = function(i) w_hat1(w0=w0,w1=w1,i)
-  R_hati = function(i) R_hat(R=R,i)
+  ###
+  L1_s_g_var = L1_s('g',w0,w1)
+  L1_s_b_var = L1_s('b',w0,w1)
+  Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+  gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
+  E_mg = E_m('g')
+  E_mb = E_m('b')
+  Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
+  w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
+  p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
+  ###
+  R_hati = function(i) R/z_prod(i)
+  p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
   RHSk = function(i) (((eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i)+psi*p_ki(i)^zeta_elas(i)))^(sigma-1)
   RHS1 = function(i) (((eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i(i)+psi*p_1i(i)^zeta_elas(i)))^(sigma-1)
   
@@ -406,7 +425,41 @@ k_excess_d = function(w0,w1,R,Y){
     #values to be evaluated at
     aux = vector(length = length(r))
     for(i in 1:length(r)){
-        aux[i] = k(R,r[i],Y) #integrand capital demanded, Remember that is r[i]
+      aux[i] = k(R,r[i],Y) #integrand capital demanded, Remember that is r[i]
+    }
+    return(aux)
+  }
+  integral = integrate(integrand_k, lower = N-1, upper = min(I0,I1)) #Bounds specified in the document
+  aux = integral$value-K
+  return(aux)  
+}
+#Excess demand for Capital Fast
+k_excess_d_fast = function(w0,w1,R,Y){
+  I0 = I_tilde0(w0,w1,R,Y)
+  I1 = I_tilde1(w0,w1,R,Y)
+  L1_s_g_var = L1_s('g',w0,w1)
+  L1_s_b_var = L1_s('b',w0,w1)
+  Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+  gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
+  E_mg = E_m('g')
+  E_mb = E_m('b')
+  Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
+  w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
+  p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
+  ###
+  R_hati = function(i) R/z_prod(i)
+  p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
+  ###
+  integrand_k = function(r){ #Creating a function that  returns a vectorized integrand (recieves a vector with 
+    #values to be evaluated at
+    aux = vector(length = length(r))
+    for(i in 1:length(r)){
+      zetai = zeta_elas(r[i])
+      pki = p_ki(r[i])
+      Rhati = R_hati(r[i])
+      Bi = B(r[i])
+      yki = (Y*((sigma-1)/sigma)^sigma)*((Bi*(eta*pki^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(Rhati + psi*pki^zetai))^sigma
+      aux[i] = yki/(Bi*(eta*pki^(zetai-1)+(1-eta))^(zetai/(zetai-1))) #integrand capital demanded, Remember that is r[i]
     }
     return(aux)
   }
@@ -434,6 +487,39 @@ l0_excess_d = function(w0,w1,R,Y){
   else{aux = 0 - (L0_s('g',w0,w1)+L0_s('b',w0,w1))}#If there is no labor without insurance in equilibrium
   return(aux)  
 }
+#Excess demand for labor without insurance
+#TODO: CHECK THIS FOR NON INTERIOR CASES
+l0_excess_d_fast = function(w0,w1,R,Y){
+  X = X_tilde(w0,w1,Y)
+  I0 = I_tilde0(w0,w1,R,Y)
+  I1 = I_tilde1(w0,w1,R,Y)
+  L0_s_g_var = L0_s('g',w0,w1)
+  L0_s_b_var = L0_s('b',w0,w1)
+  Chi_0gi = function(i) 1*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
+  gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
+  w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
+  p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
+  if(I0<I1){ #Checking for interior cases
+    integrand_l0 = function(r){ #Creating a function that a returns a vectorized integrand
+      aux = vector(length = length(r))
+      for(i in 1:length(r)){ #Inside the index of the tasks are r[i] and not i
+        zetai = zeta_elas(r[i])
+        Bi = B(r[i])
+        p0i = p_0i(r[i])
+        what0i = w_hat0i(r[i]) 
+        gammaprodbar0i = gamma_prod_bar_0i(r[i])
+        y0i = (Y*((sigma-1)/sigma)^sigma)*((Bi*(eta*p0i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(what0i + psi*p0i^zetai))^sigma
+        lhat0i = y0i/(Bi*(eta*p0i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))
+        aux[i] = lhat0i/gammaprodbar0i #integrand of l0 demanded
+      }
+      return(aux)
+    }
+    integral = integrate(integrand_l0, lower = I0, upper = X) #Bounds specified in the document
+    aux = integral$value - (L0_s('g',w0,w1)+L0_s('b',w0,w1)) #subtracting Labor supplied for no insurance
+  }
+  else{aux = 0 - (L0_s('g',w0,w1)+L0_s('b',w0,w1))}#If there is no labor without insurance in equilibrium
+  return(aux)  
+}
 #Excess demand fo labor with insurance
 #TODO: CHECK THIS FOR NON INTERIOR CASES
 l1_excess_d = function(w0,w1,R,Y){
@@ -444,6 +530,40 @@ l1_excess_d = function(w0,w1,R,Y){
     aux = vector(length = length(r))
     for(i in 1:length(r)){
       aux[i] = l_hat1(w0,w1,r[i],Y)/gamma_prod_bar_1(w0,w1,r[i]) #integrand of l1 demanded
+    }
+    return(aux)
+  }
+  integral = integrate(integrand_l1, lower = max(I1,X), upper = N) #Bounds specified in the document
+  aux = integral$value - (L1_s('g',w0,w1)+L1_s('b',w0,w1)) #subtracting Labor supplied for insurance
+  return(aux)  
+}
+#Excess demand fo labor with insurance
+#TODO: CHECK THIS FOR NON INTERIOR CASES
+l1_excess_d_fast = function(w0,w1,R,Y){
+  X = X_tilde(w0,w1,Y)
+  I0 = I_tilde0(w0,w1,R,Y)
+  I1 = I_tilde1(w0,w1,R,Y)
+  ###
+  L1_s_g_var = L1_s('g',w0,w1)
+  L1_s_b_var = L1_s('b',w0,w1)
+  Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+  gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
+  E_mg = E_m('g')
+  E_mb = E_m('b')
+  Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
+  w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
+  p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
+  integrand_l1 = function(r){ #Creating a function that a returns a vectorized integrand
+    aux = vector(length = length(r))
+    for(i in 1:length(r)){
+      gammaprodbar1i = gamma_prod_bar_1i(r[i])
+      p1i = p_1i(r[i])
+      zetai = zeta_elas(r[i])
+      what1i = w_hat1i(r[i])
+      Bi = B(r[i])
+      y1i = (Y*((sigma-1)/sigma)^sigma)*((Bi*(eta*p1i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(what1i + psi*p1i^zetai))^sigma
+      lhat1i = y1i/(Bi*(eta*p1i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))
+      aux[i] = lhat1i/gammaprodbar1i #integrand of l1 demanded
     }
     return(aux)
   }
@@ -478,7 +598,7 @@ Y_excess_s = function(w0,w1,R,Y){
       return(aux)
     }
     integral = integrate(integrand_y0, lower = I0, upper = X)
-    if(I0_Y(Y)<I1_Y(Y)){aux = integral$value}
+    if(I0<I1){aux = integral$value}
     else{aux = 0}
     return(aux)
   }
@@ -497,38 +617,85 @@ Y_excess_s = function(w0,w1,R,Y){
   aux = Y - (Y_k(Y)+Y_0(Y)+Y_1(Y))^(sigma/(sigma-1))
   return(aux) 
 }
-
-#Newton-Raphson algorithm (just to try)
-newton.raphson <- function(f, a, b, tol = 1e-5, n = 1000) {
-  x0 <- a # Set start value to supplied lower bound
-  k <- n # Initialize for iteration results
-  
-  # Check the upper and lower bounds to see if approximations result in 0
-  fa <- f(a)
-  if (fa == 0.0) {
-    return(a)
-  }
-  
-  fb <- f(b)
-  if (fb == 0.0) {
-    return(b)
-  }
-  
-  for (i in 1:n) {
-    dx <- genD(func = f, x = x0)$D[1] # First-order derivative f'(x0)
-    x1 <- x0 - (f(x0) / dx) # Calculate next value x1
-    k[i] <- x1 # Store x1
-    # Once the difference between x0 and x1 becomes sufficiently small, output the results.
-    if (abs(x1 - x0) < tol) {
-      root.approx <- tail(k, n=1)
-      res <- list('root approximation' = root.approx, 'iterations' = k)
-      return(res)
+#Total consumption good
+#TODO: Include indicator function, boudarie cases and Review
+Y_excess_s_fast = function(w0,w1,R,Y){
+  X = X_tilde(w0,w1,Y)
+  I0 = I_tilde0(w0,w1,R,Y)
+  I1 = I_tilde1(w0,w1,R,Y)  
+  Y_k = function(Y){
+    integrand_yk = function(r){ #Creating a function that returns a vectorized integrand
+      aux = vector(length = length(r))
+      R_hati = function(i) R/z_prod(i)
+      p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
+      for(i in 1:length(r)){
+        pki = p_ki(r[i])
+        zetai = zeta_elas(r[i])
+        Rhati = R_hati(r[i])
+        Bi = B(r[i])
+        yki = (Y*((sigma-1)/sigma)^sigma)*((Bi*(eta*pki^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(Rhati + psi*pki^zetai))^sigma
+        aux[i] = (yki)^((sigma-1)/sigma) #integrand of y_k in the consumption good production
+      }
+      return(aux)
     }
-    # If Newton-Raphson has not yet reached convergence set x1 as x0 and continue
-    x0 <- x1
+    integral = integrate(integrand_yk, lower = N-1, upper = min(I1,I0))
+    aux = integral$value
+    return(aux)
   }
-  print('Too many iterations in method')
+  Y_0 = function(Y){
+    integrand_y0 = function(r){ #Creating a function that returns a vectorized integrand
+      L0_s_g_var = L0_s('g',w0,w1)
+      L0_s_b_var = L0_s('b',w0,w1)
+      Chi_0gi = function(i) 1*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
+      gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
+      w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
+      p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
+      aux = vector(length = length(r))
+      for(i in 1:length(r)){
+        p0i = p_0i(r[i])
+        zetai = zeta_elas(r[i])
+        what0i = w_hat0i(r[i])
+        Bi = B(r[i])
+        y0i = (Y*((sigma-1)/sigma)^sigma)*((Bi*(eta*p0i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(what0i + psi*p0i^zetai))^sigma  
+        aux[i] = (y0i)^((sigma-1)/sigma) #integrand of y_0 in the consumption good production
+      }
+      return(aux)
+    }
+    integral = integrate(integrand_y0, lower = I0, upper = X)
+    if(I0<I1){aux = integral$value}
+    else{aux = 0}
+    return(aux)
+  }
+  Y_1 = function(Y){
+    integrand_y1 = function(r){ #Creating a function that returns a vectorized integrand
+      L1_s_g_var = L1_s('g',w0,w1)
+      L1_s_b_var = L1_s('b',w0,w1)
+      Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+      gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
+      E_mg = E_m('g')
+      E_mb = E_m('b')
+      Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
+      w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
+      p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
+      aux = vector(length = length(r))
+      for(i in 1:length(r)){
+        p1i = p_1i(r[i])
+        zetai = zeta_elas(r[i])
+        what1i = w_hat1i(r[i])
+        Bi = B(r[i])
+        y1i = (Y*((sigma-1)/sigma)^sigma)*((Bi*(eta*p1i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(what1i + psi*p1i^zetai))^sigma
+        aux[i] = (y1i)^((sigma-1)/sigma) #integrand of y_1 in the consumption good production
+      }
+      return(aux)
+    }
+    integral = integrate(integrand_y1, lower = max(I1,X), upper = N)
+    aux = integral$value
+    return(aux)
+  }
+  aux = Y - (Y_k(Y)+Y_0(Y)+Y_1(Y))^(sigma/(sigma-1))
+  return(aux) 
 }
+
 
 # NOTES --------------------------------------------------------------------
 #How do we specify the reservation utility problem? IN the notse gives 0, but 
