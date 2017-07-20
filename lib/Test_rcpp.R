@@ -15,6 +15,7 @@ library(truncnorm)
 library(profvis)
 library(numDeriv)
 library(rootSolve)
+library(microbenchmark)
 #Change directory
 dir = '~/Dropbox/Technology/Codes/Technology_Health/'
 setwd(dir)
@@ -35,7 +36,7 @@ sd_b = 1            #Standard deviation of theta for unhealthy workers
 rate_g = 2          #Rate for exponential distribution for medical exp. healthy workers  
 rate_b = 1          #Rate for exponential distribution for medical exp. unhealthy workers
 util_min = 0.001    #Minimum consumption minus labor effort a household can have (can't be 0 or blows up)
-                    #This is not in the same way in the document!
+#This is not in the same way in the document!
 #Firm
 N = 1               #Range of tasks (upper limit)
 eta = 0.5           #Distribution parameter of the CES
@@ -175,7 +176,7 @@ theta_ins = function(h,w0,w1){
   else{aux = uniroot(fun, c(initial,final), tol = tol, extendInt = "downX")$root}  #Get the root, 
   #downX is to tell that is decresing on theta, so can look further than the specified range, 
   #although Im not using this given the boudary cases
-    return(aux) 
+  return(aux) 
 }
 #Aggregate labor supply for no insurance
 L0_s = function(h,w0,w1){
@@ -406,7 +407,7 @@ k_excess_d = function(w0,w1,R,Y){
     #values to be evaluated at
     aux = vector(length = length(r))
     for(i in 1:length(r)){
-        aux[i] = k(R,r[i],Y) #integrand capital demanded, Remember that is r[i]
+      aux[i] = k(R,r[i],Y) #integrand capital demanded, Remember that is r[i]
     }
     return(aux)
   }
@@ -530,110 +531,31 @@ newton.raphson <- function(f, a, b, tol = 1e-5, n = 1000) {
   print('Too many iterations in method')
 }
 
-# NOTES --------------------------------------------------------------------
-#How do we specify the reservation utility problem? IN the notse gives 0, but 
-#has to be bigger than that.
-#We can get advantageous selection for some wages and Adverse selection for others
-#if we take (w0,w1)=(2,0.25) we get Advantageous Sel, and if (w0,w1)=(2,1) we get 
-#Adverse Sel The question is what happens in equilibrium!
-#We can calculate the expectations analitically too to be faster
-#Should the Normalizing constant B depend on i too ? It is in the code nut not in the document
-#One problem of the code is that whenever wages are such that there is no Labor supply
-#for one of the contracts, then the problem of the firm for that contract is not 
-#well defined, because Chi is not well defined.
-#Effective wages do not cross! It seems that regardless of rho, effective wage approaches
-#assymptotically to 0 and they never cross, just get closer and closer (across i).
+
+Rcpp::sourceCpp('lib/l0_s_cpp.cpp')
 
 
-# Plots -------------------------------------------------------------------
-dir = '~/Dropbox/Technology/Codes/Technology_Health/plots/'
-setwd(dir)
-#Wages to play
-w0 = 2
-w1 = 1
-R = 1.7
-#Need to specify also total output to play
-Y = 10 
-#Plot to show that FOSD in Assumption 1 holds for this case
-ggplot(data.frame(x=c(0, 15)), aes(x=x)) + 
-  stat_function(fun=H_g, geom="line", aes(colour = "H_g")) + xlab("x") + 
-  ylab("y") + stat_function(fun=H_b, geom="line",aes(colour = "H_b")) 
-#Plot to show that FOSD in Assumption 2 holds for this case
-ggplot(data.frame(x=c(1.001, 4)), aes(x=x)) + 
-  stat_function(fun=F_g, geom="line", aes(colour = "F_g")) + xlab("x") + 
-  ylab("y") + stat_function(fun=F_b, geom="line",aes(colour = "F_b")) 
-#Plot gamma_prod
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=gamma_prod, geom="line") + xlab("x") + ylab("y") 
-#Plot delta_sort
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=delta_sort, geom="line") + xlab("x") + ylab("y") 
-#Plot C_A
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=C_A , geom="line") + xlab("x") + ylab("y") 
-#Plot Chi_0g and Chi_1g (change wages to get advantageous selection) 
-Chi_0g_plot = function(i) Chi_0g(w0=w0, w1=w1,i)
-Chi_1g_plot = function(i) Chi_1g(w0=w0, w1=w1,i)
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=Chi_0g_plot, geom="line", aes(colour = "Chi_0g")) + xlab("i") + 
-  ylab("") + stat_function(fun=Chi_1g_plot, geom="line",aes(colour = "Chi_1g"))
-ggsave(file="endogenous_proportion_healthy_experiment.pdf", width=8, height=5)
-#PlotEvolution of Expected medical expenditure across i under Advantageous selection
-M_plot = function(i) M(w0=w0, w1=w1,i)
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=M_plot, geom="line", aes(colour = "M")) + 
-  xlab("i") +  ylab("")
-ggsave(file="expected_medical_expenditure_experiment.pdf", width=8, height=5)
-#Plot Labor average productivity
-gamma_prod_bar_0_plot = function(i) gamma_prod_bar_0(w0=w0, w1=w1,i)
-gamma_prod_bar_1_plot = function(i) gamma_prod_bar_1(w0=w0, w1=w1,i)
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=gamma_prod_bar_0_plot, geom="line",  aes(colour = "gamma_bar0")) + 
-  xlab("i") +  ylab("") + stat_function(fun=gamma_prod_bar_1_plot, geom="line",
-                aes(colour = "gamma_bar1"))
-ggsave(file="average_labor_productivity_experiment.pdf", width=8, height=5)
-#Plot effective wages and prices
-#Be careful here, for some wages the effective wages wont be well defined, 
-#because the endogenous proportion is computed to be the equilibrium one,
-#and depends on aggregate Labor suply, that can be corner, thus, the proportion 
-#is not well defined if supply is 0 for example.
-w_hat0_plot = function(i) w_hat0(w0=w0, w1=w1,i)
-w_hat1_plot = function(i) w_hat1(w0=w0, w1=w1,i)
-R_hat_plot = function(i) R_hat(R=R,i)
-X = X_tilde(w0,w1,Y)
-I0 = I_tilde0(w0,w1,R,Y)
-I1 = I_tilde1(w0,w1,R,Y)
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=w_hat0_plot, geom="line",  aes(colour = "w_hat0")) + 
-  xlab("i") +  ylab("") + stat_function(fun=w_hat1_plot, geom="line",
-                                         aes(colour = "w_hat1")) +
-  stat_function(fun=R_hat_plot, geom="line", aes(colour = "R_hat")) +
-  geom_vline(xintercept = X,linetype=4, colour="black") +
-  geom_vline(xintercept = I0,linetype=3, colour="black") +
-  geom_vline(xintercept = I1,linetype=2, colour="black") +
-  geom_text(mapping = aes(label = "X", y = 0, x = X+0.02),colour="blue") +
-  geom_text(mapping = aes(label = "I0", y = 0, x = I0+0.02),colour="blue") +
-  geom_text(mapping = aes(label = "I1", y = 0, x = I1+0.02),colour="blue") +
-  ggtitle("(w0,w1,R)=(2,1,1.7)")
-ggsave(file="effective_wages_experiment.pdf", width=8, height=5)
-#Plot conditional labor demanded and capital
-#If the medical expenditure is too big, then for health insurance, seems almost 
-#like flat, although it is increasing, showing that Proposition 8 and 9 hold
-#k should be flat if z_prod(i)=constant.
-l_0d_plot = function(i) l_hat0(w0=w0,w1=w1,i,Y=10)/gamma_prod_bar_0(w0=w0,w1=w1,i)
-l_1d_plot = function(i) l_hat1(w0=w0,w1=w1,i,Y=10)/gamma_prod_bar_1(w0=w0,w1=w1,i)
-k_plot = function(i) k(R=1,i,Y=10)
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +  xlab("x") +  ylab("y") + 
-  stat_function(fun=l_0d_plot, geom="line",  aes(colour = "l_0d")) + 
-  stat_function(fun=l_1d_plot, geom="line",  aes(colour = "l_1d")) +
-  stat_function(fun=k_plot, geom="line",  aes(colour = "k"))
-#Plot market clearing for Y
-#Just testing
-Y_seq = seq(from=0, to=20, by=1)
-excess_Y_vec = vector(length=length(Y_seq))
-for(j in Y_seq){
-  excess_Y_vec[j] = fun(j)
+
+# Testing Rcpp ------------------------------------------------------------
+
+l0_s_vector_R = function(w0){
+  aux = vector(length = length(w0))
+  for(i in 1:length(w0)){
+    aux[i] = (w0[i]/phi)^(1/xi) 
+  }
+  return(aux)
 }
-plot(x=Y_seq, y=excess_Y_vec)
-  
 
+Rcpp::sourceCpp('~/Dropbox/Technology/Codes/Technology_Health/lib/l0_s_cpp.cpp')
+
+trial_seq = seq(from=0, to=1000, by=1)
+microbenchmark(times=1000, unit="ms", l0_s_vector_R(trial_seq), l0_s_cpp(trial_seq))
+
+#So just changing the function to Rcpp becomes 4 times faster.
+#Now testing vectoriazed function u0
+Rcpp::sourceCpp('~/Dropbox/Technology/Codes/Technology_Health/lib/u0_cpp.cpp')
+
+
+microbenchmark(times=1000, unit="ms", u0(theta = 0.5, h='g', w0 = 2.4, m = trial_seq),
+               u0_cpp(theta = 0.5, w0 = 2.4, m = trial_seq))
+#In this case is 8 times faster!
