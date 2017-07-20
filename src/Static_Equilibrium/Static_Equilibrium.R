@@ -697,15 +697,17 @@ Y_excess_s_fast = function(w0,w1,R,Y){
 }
 
 #Computing equilibrium
-Compute_equilibrium = function(w0,w1,R,Y){
-  obj_fun = function(w0,w1,R,Y){
-    abs(k_excess_d_fast(w0,w1,R,Y))+abs(l0_excess_d_fast(w0,w1,R,Y)) +
-      abs(l1_excess_d_fast(w0,w1,R,Y))+abs(Y_excess_s_fast(w0,w1,R,Y))
-  }
-  prices_eq = optim(par=c(2,1,1.7,10), fn = obj_fun, method = "L-BFGS-B", 
-                    lower = c(0,0,0,0), upper = c(Inf,Inf,Inf,Inf))$par
-  return(prices_eq)
+#TODO: Solve the corner cases for the thresholds and excess demands
+#Fix the inconsistency with the beliefs out of path (Assign some beliefs there)
+obj_fun = function(w0,w1,R,Y){
+  abs(k_excess_d_fast(w0,w1,R,Y))+abs(l0_excess_d_fast(w0,w1,R,Y)) +
+    abs(l1_excess_d_fast(w0,w1,R,Y))+abs(Y_excess_s_fast(w0,w1,R,Y))
 }
+prices_eq = optim(par=c(2,1,1,10), fn = obj_fun, method = "L-BFGS-B", 
+                  lower = c(0.001,0.001,0.001,0.001), 
+                  upper = c(100,100,100,100))$par
+
+
 
 # NOTES --------------------------------------------------------------------
 #How do we specify the reservation utility problem? IN the notse gives 0, but 
