@@ -696,6 +696,16 @@ Y_excess_s_fast = function(w0,w1,R,Y){
   return(aux) 
 }
 
+#Computing equilibrium
+Compute_equilibrium = function(w0,w1,R,Y){
+  obj_fun = function(w0,w1,R,Y){
+    abs(k_excess_d_fast(w0,w1,R,Y))+abs(l0_excess_d_fast(w0,w1,R,Y)) +
+      abs(l1_excess_d_fast(w0,w1,R,Y))+abs(Y_excess_s_fast(w0,w1,R,Y))
+  }
+  prices_eq = optim(par=c(2,1,1.7,10), fn = obj_fun, method = "L-BFGS-B", 
+                    lower = c(0,0,0,0), upper = c(Inf,Inf,Inf,Inf))$par
+  return(prices_eq)
+}
 
 # NOTES --------------------------------------------------------------------
 #How do we specify the reservation utility problem? IN the notse gives 0, but 
