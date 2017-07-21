@@ -1,4 +1,4 @@
-#Solve for static equilibrium (Less risk averse households)
+#Solve for static equilibrium 
 
 # Libraries ---------------------------------------------------------------
 
@@ -51,7 +51,7 @@ lambda_d = 10        #Parameter in sorting function
 alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
 tol = 1e-3          #Tolerance for unitroot, affects computation time
-K = 0.2             #Capital stock in the economy
+K = 5             #Capital stock in the economy
 # Primitive Functions ---------------------------------------------------------------
 #Distributions
 #Conditional cdf of Households' types
@@ -499,7 +499,7 @@ l0_excess_d_fast = function(w0,w1,R,Y){
   gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
   w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
   p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
-  if(I0<I1){ #Checking for interior cases
+  if(I0<I1 & I0<X){ #Checking for interior cases
     integrand_l0 = function(r){ #Creating a function that a returns a vectorized integrand
       aux = vector(length = length(r))
       for(i in 1:length(r)){ #Inside the index of the tasks are r[i] and not i
@@ -567,8 +567,11 @@ l1_excess_d_fast = function(w0,w1,R,Y){
     }
     return(aux)
   }
-  integral = integrate(integrand_l1, lower = max(I1,X), upper = N) #Bounds specified in the document
-  aux = integral$value - (L1_s('g',w0,w1)+L1_s('b',w0,w1)) #subtracting Labor supplied for insurance
+  if(max(I1,X)<N){
+    integral = integrate(integrand_l1, lower = max(I1,X), upper = N) #Bounds specified in the document
+    aux = integral$value - (L1_s('g',w0,w1)+L1_s('b',w0,w1)) #subtracting Labor supplied for insurance
+  }
+  else{aux = 0 - (L1_s('g',w0,w1)+L1_s('b',w0,w1))}
   return(aux)  
 }
 #Total consumption good
@@ -661,8 +664,10 @@ Y_excess_s_fast = function(w0,w1,R,Y){
       }
       return(aux)
     }
-    integral = integrate(integrand_y0, lower = I0, upper = X)
-    if(I0<I1){aux = integral$value}
+    if(I0<I1){
+      integral = integrate(integrand_y0, lower = I0, upper = X)
+      aux = integral$value
+    }
     else{aux = 0}
     return(aux)
   }
@@ -688,24 +693,34 @@ Y_excess_s_fast = function(w0,w1,R,Y){
       }
       return(aux)
     }
-    integral = integrate(integrand_y1, lower = max(I1,X), upper = N)
-    aux = integral$value
+    if(max(I1,X)<N){
+      integral = integrate(integrand_y1, lower = max(I1,X), upper = N)
+      aux = integral$value
+    }
+    else{aux = 0}
     return(aux)
   }
   aux = Y - (Y_k(Y)+Y_0(Y)+Y_1(Y))^(sigma/(sigma-1))
   return(aux) 
 }
 
-#Computing equilibrium
+
+# Computing equilibrium ---------------------------------------------------
 #TODO: Solve the corner cases for the thresholds and excess demands
 #Fix the inconsistency with the beliefs out of path (Assign some beliefs there)
-obj_fun = function(w0,w1,R,Y){
-  abs(k_excess_d_fast(w0,w1,R,Y))+abs(l0_excess_d_fast(w0,w1,R,Y)) +
-    abs(l1_excess_d_fast(w0,w1,R,Y))+abs(Y_excess_s_fast(w0,w1,R,Y))
+#Try Multiroot also
+obj_fun = function(p){
+  w0 = p[1]
+  w1 = p[2]
+  R = p[3]
+  Y = p[4]
+  aux  = (k_excess_d_fast(w0,w1,R,Y)/K)^2 + (l0_excess_d_fast(w0,w1,R,Y))^2 +
+       (l1_excess_d_fast(w0,w1,R,Y))^2 + (Y_excess_s_fast(w0,w1,R,Y)/Y)^2
+  return(aux)#Here I need to normalize in some way the Excess demands
 }
 prices_eq = optim(par=c(2,1,1,10), fn = obj_fun, method = "L-BFGS-B", 
                   lower = c(0.001,0.001,0.001,0.001), 
-                  upper = c(100,100,100,100))$par
+                  upper = c(Inf,Inf,Inf,Inf))$par
 
 
 
