@@ -16,6 +16,8 @@ library(profvis)
 library(numDeriv)
 library(rootSolve)
 library(microbenchmark)
+library(nloptr)
+library(benchmarkme)
 #Change directory
 dir = '~/Dropbox/Technology/Codes/Technology_Health/'
 setwd(dir)
@@ -50,7 +52,7 @@ A_0 = 1             #Parameter in labor productivity
 lambda_d = 10        #Parameter in sorting function
 alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
-tol = 1e-3          #Tolerance for unitroot, affects computation time
+tol = 1e-8          #Tolerance for unitroot, affects computation time
 K = 5             #Capital stock in the economy
 # Primitive Functions ---------------------------------------------------------------
 #Distributions
@@ -434,7 +436,11 @@ k_excess_d = function(w0,w1,R,Y){
   return(aux)  
 }
 #Excess demand for Capital Fast
-k_excess_d_fast = function(w0,w1,R,Y){
+k_excess_d_fast = function(p){
+  w0 = p[1]
+  w1 = p[2]
+  R = p[3]
+  Y = p[4]
   I0 = I_tilde0(w0,w1,R,Y)
   I1 = I_tilde1(w0,w1,R,Y)
   L1_s_g_var = L1_s('g',w0,w1)
@@ -489,7 +495,11 @@ l0_excess_d = function(w0,w1,R,Y){
 }
 #Excess demand for labor without insurance
 #TODO: CHECK THIS FOR NON INTERIOR CASES
-l0_excess_d_fast = function(w0,w1,R,Y){
+l0_excess_d_fast = function(p){
+  w0 = p[1]
+  w1 = p[2]
+  R = p[3]
+  Y = p[4]
   X = X_tilde(w0,w1,Y)
   I0 = I_tilde0(w0,w1,R,Y)
   I1 = I_tilde1(w0,w1,R,Y)
@@ -539,7 +549,11 @@ l1_excess_d = function(w0,w1,R,Y){
 }
 #Excess demand fo labor with insurance
 #TODO: CHECK THIS FOR NON INTERIOR CASES
-l1_excess_d_fast = function(w0,w1,R,Y){
+l1_excess_d_fast = function(p){
+  w0 = p[1]
+  w1 = p[2]
+  R = p[3]
+  Y = p[4]
   X = X_tilde(w0,w1,Y)
   I0 = I_tilde0(w0,w1,R,Y)
   I1 = I_tilde1(w0,w1,R,Y)
@@ -622,7 +636,11 @@ Y_excess_s = function(w0,w1,R,Y){
 }
 #Total consumption good
 #TODO: Include indicator function, boudarie cases and Review
-Y_excess_s_fast = function(w0,w1,R,Y){
+Y_excess_s_fast = function(p){
+  w0 = p[1]
+  w1 = p[2]
+  R = p[3]
+  Y = p[4]
   X = X_tilde(w0,w1,Y)
   I0 = I_tilde0(w0,w1,R,Y)
   I1 = I_tilde1(w0,w1,R,Y)  
@@ -709,19 +727,48 @@ Y_excess_s_fast = function(w0,w1,R,Y){
 #TODO: Solve the corner cases for the thresholds and excess demands
 #Fix the inconsistency with the beliefs out of path (Assign some beliefs there)
 #Try Multiroot also
-obj_fun = function(p){
-  w0 = p[1]
-  w1 = p[2]
-  R = p[3]
+obj_fun = function(p){  
   Y = p[4]
-  aux  = (k_excess_d_fast(w0,w1,R,Y)/K)^2 + (l0_excess_d_fast(w0,w1,R,Y))^2 +
-       (l1_excess_d_fast(w0,w1,R,Y))^2 + (Y_excess_s_fast(w0,w1,R,Y)/Y)^2
+  aux  = (k_excess_d_fast(p)/K)^2 + (l0_excess_d_fast(p))^2 +
+       (l1_excess_d_fast(p))^2 + (Y_excess_s_fast(p)/Y)^2
   return(aux)#Here I need to normalize in some way the Excess demands
 }
-prices_eq = optim(par=c(2,1,1,10), fn = obj_fun, method = "L-BFGS-B", 
-                  lower = c(0.001,0.001,0.001,0.001), 
-                  upper = c(Inf,Inf,Inf,Inf))$par
+# Start the clock!
+ptm = proc.time()
+#Optimize and get the parameters
+#Is stopping  "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH"
+optim_object = optim(par=c(2,1,1,10), fn = obj_fun, method = "L-BFGS-B", 
+                  lower = c(0.001,0.001,0.001,0.001),  
+                  control = list(trace = 1, factr = 1e-10),
+                  upper = c(Inf,Inf,Inf,Inf))
+# Stop the clock
+proc.time() - ptm
+optim_object
+#Best result so far: 1.314806e-06 (without arguments) and with error we get 1.871764e-08
 
+#The next ones are quite far from the result
+# Start the clock!
+ptm = proc.time()
+#Optimize and get the parameters
+nloptim_object = nloptr(x0=c(2,1,1,10), eval_f = obj_fun,
+                      lb = c(0.001,0.001,0.001,0.001), 
+                      opts= list(algorithm ="NLOPT_GN_ORIG_DIRECT",xtol_rel =1.0e-15, maxeval = 2000),
+                      ub = c(100,100,100,100))
+print(nloptim_object)  
+# Stop the clock
+proc.time() - ptm
+
+#Local search with global solution as initial guess
+# Start the clock!
+ptm = proc.time()
+#Optimize and get the parameters
+nloptim_object = nloptr(x0= nloptim_object$solution, eval_f = obj_fun,
+                        lb = c(0.001,0.001,0.001,0.001), 
+                        opts= list(algorithm ="NLOPT_LN_COBYLA",xtol_rel =1.0e-15, maxeval = 2000),
+                        ub = c(Inf,Inf,Inf,Inf))
+print(nloptim_object)  
+# Stop the clock
+proc.time() - ptm
 
 
 # NOTES --------------------------------------------------------------------
