@@ -28,16 +28,20 @@ xi = 0.455          #Utility function
 phi = 1             #Cost of labor effort  
 lambda_g = 0.5      #Measure healthy workers
 theta_L = 0         #Domain for theta
-theta_H = 10
+theta_H = Inf
 m_L = 0             #Domain for medical expenditure shocks
 m_F = Inf
-mu_g = 2            #Mean of theta for healthy workers
-mu_b = 0            #Mean of theta for healthy workers
-sd_g = 1            #Standard deviation of theta for healthy workers
-sd_b = 1            #Standard deviation of theta for unhealthy workers
-rate_g = 2          #Rate for exponential distribution for medical exp. healthy workers  
+mu_g = 2            #Mean of theta for healthy workers (Truncated Normal)
+mu_b = 0            #Mean of theta for healthy workers (Truncated Normal)
+sd_g = 1            #Standard deviation of theta for healthy workers (Truncated Normal)
+sd_b = 2            #Standard deviation of theta for unhealthy workers (Truncated Normal)
+shape_g = 3         #Shape parameter of theta (Gamma distribution) 
+shape_b = 2         #Shape parameter of theta (Gamma distribution) 
+scale_g = 2         #Scale parameter of theta (Gamma distribution) 
+scale_b = 2         #Scale parameter of theta (Gamma distribution) 
+rate_g = 4          #Rate for exponential distribution for medical exp. healthy workers  
 rate_b = 1          #Rate for exponential distribution for medical exp. unhealthy workers
-util_min = 0.001    #Minimum consumption minus labor effort a household can have (can't be 0 or blows up)
+util_min = 0.0001   #Minimum consumption minus labor effort a household can have (can't be 0 or blows up)
 #This is not in the same way in the document!
 #Firm
 N = 1               #Range of tasks (upper limit)
@@ -46,23 +50,26 @@ rho = 0.8           #Relative labor productivity of unhealthy workers
 psi = 1             #Price of intermediates
 sigma = 2           #Elasticity of substitution between tasks
 zeta = 2            #Elasticity of substitution between factors (if fixed), just to define zeta_elas
-C_IN = 0.5          #Health Insurance Fixed Cost
+#Change this to a small positive number
+C_IN = 0.2          #Health Insurance Fixed Cost
 A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
-lambda_d = 10        #Parameter in sorting function
+lambda_d = 10       #Parameter in sorting function
 alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
 tol = 1e-8          #Tolerance for unitroot, affects computation time
-K = 5             #Capital stock in the economy
+K = 5               #Capital stock in the economy
 # Primitive Functions ---------------------------------------------------------------
 #Distributions
 #Conditional cdf of Households' types
 F_g  = function(theta){
-  aux =  ptruncnorm(theta, a = theta_L, b = theta_H, mean = mu_g, sd = sd_g) #Good health
+  #aux =  ptruncnorm(theta, a = theta_L, b = theta_H, mean = mu_g, sd = sd_g) #Good health
+  aux = pgamma(theta, shape = shape_g, scale = scale_g) #Expectation is shape*rate
   return(aux)
 } 
 F_b  = function(theta){
-  aux =  ptruncnorm(theta, a = theta_L, b = theta_H, mean = mu_b, sd = sd_b) #Bad health
+  #aux =  ptruncnorm(theta, a = theta_L, b = theta_H, mean = mu_b, sd = sd_b) #Bad health
+  aux = pgamma(theta, shape = shape_b, scale = scale_b)
   return(aux)
 } 
 #Conditional pdf of Medical Expenditure
@@ -169,15 +176,18 @@ E_u0 = function(theta,h,w0){
   return(integral$value) #return just the value of the inetgral
 }
 #Threshold for household insurance decision
+#TODO: check depending on the distribution of Theta (Now for Gamma)
 theta_ins = function(h,w0,w1){
   initial = theta_L  #Search over
-  final = theta_H
+  #final = theta_H
+  #As we can not evaluate f(Inf) I use a lower number, but allowing uniroot to extend it
+  final = 10 
   fun = function (theta) E_u0(theta,h,w0) - u1(theta,h,w1)   #This is a decreasing function of theta
   if(E_u0(theta_L,h,w0) - u1(theta_L,h,w1) < 0){aux = theta_L} #If at lower bound is negative
-  else if(E_u0(theta_H,h,w0) - u1(theta_H,h,w1) > 0){aux = theta_H}
+  #TODO: Uncomment the next line if we have bouded support for Theta
+  #else if(E_u0(theta_H,h,w0) - u1(theta_H,h,w1) > 0){aux = theta_H} #This line works only with bounded support for theta
   else{aux = uniroot(fun, c(initial,final), tol = tol, extendInt = "downX")$root}  #Get the root, 
-  #downX is to tell that is decresing on theta, so can look further than the specified range, 
-  #although Im not using this given the boudary cases
+  #downX is to tell that is decresing on theta, so can look further than the specified range
   return(aux) 
 }
 #Aggregate labor supply for no insurance
@@ -739,12 +749,18 @@ ptm = proc.time()
 #Is stopping  "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH"
 optim_object = optim(par=c(2,1,1,10), fn = obj_fun, method = "L-BFGS-B", 
                   lower = c(0.001,0.001,0.001,0.001),  
-                  control = list(trace = 1, factr = 1e-10),
+                  control = list(trace = 1, factr = 1e-8),
                   upper = c(Inf,Inf,Inf,Inf))
 # Stop the clock
 proc.time() - ptm
 optim_object
-#Best result so far: 1.314806e-06 (without arguments) and with error we get 1.871764e-08
+#Checking results
+p = optim_object$par
+w0 = p[1]
+w1 = p[2]
+R = p[3]
+Y = p[4]
+#Best result so far: 1.314806e-06 (without arguments) and with error we get 1.871764e-08 (factr = 1e-10)
 
 #The next ones are quite far from the result
 # Start the clock!
@@ -752,8 +768,8 @@ ptm = proc.time()
 #Optimize and get the parameters
 nloptim_object = nloptr(x0=c(2,1,1,10), eval_f = obj_fun,
                       lb = c(0.001,0.001,0.001,0.001), 
-                      opts= list(algorithm ="NLOPT_GN_ORIG_DIRECT",xtol_rel =1.0e-15, maxeval = 2000),
-                      ub = c(100,100,100,100))
+                      opts= list(algorithm ="NLOPT_GN_ORIG_DIRECT", maxeval = 10000),
+                      ub = c(10,10,10,100))
 print(nloptim_object)  
 # Stop the clock
 proc.time() - ptm
@@ -764,12 +780,22 @@ ptm = proc.time()
 #Optimize and get the parameters
 nloptim_object = nloptr(x0= nloptim_object$solution, eval_f = obj_fun,
                         lb = c(0.001,0.001,0.001,0.001), 
-                        opts= list(algorithm ="NLOPT_LN_COBYLA",xtol_rel =1.0e-15, maxeval = 2000),
+                        opts= list(algorithm ="NLOPT_LN_COBYLA",xtol_rel =1.0e-15, maxeval = 10000),
                         ub = c(Inf,Inf,Inf,Inf))
 print(nloptim_object)  
 # Stop the clock
 proc.time() - ptm
 
+
+#Global optimizer with CRS2 (It doesn't work well)
+ptm = proc.time()
+crs2_sol = crs2lm(x0=c(2,1,1,10), fn = obj_fun,
+             lower = c(0.001,0.001,0.001,0.001),
+             upper = c(10,10,10,100),
+             maxeval = 10000,
+             xtol_rel = 1e-6)
+proc.time() - ptm
+crs2_sol
 
 # NOTES --------------------------------------------------------------------
 #How do we specify the reservation utility problem? IN the notse gives 0, but 
