@@ -18,6 +18,7 @@ library(rootSolve)
 library(microbenchmark)
 library(nloptr)
 library(benchmarkme)
+library(distrEx)
 #Change directory
 dir = '~/Dropbox/Technology/Codes/Technology_Health/'
 setwd(dir)
@@ -51,7 +52,7 @@ psi = 1             #Price of intermediates
 sigma = 2           #Elasticity of substitution between tasks
 zeta = 2            #Elasticity of substitution between factors (if fixed), just to define zeta_elas
 #Change this to a small positive number
-C_IN = 0.2          #Health Insurance Fixed Cost
+C_IN = 0.5          #Health Insurance Fixed Cost
 A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
 lambda_d = 10       #Parameter in sorting function
@@ -149,14 +150,28 @@ u1 = function(theta,h,w1){
 #Utility function under No insurance
 u0 = function(theta,h,w0,m){
   l0 = l0_s(w0)
-  aux = vector(length = length(m)) #Adapting the function to retrieve a vector (to use integrate function later)
-  for(i in 1:length(aux)){ #Here Im taking the max between the argument of the utility and util_min
-    aux[i] = (1/(1-theta))*((max(w0*l0 - m[i] - phi*((l0^(1+xi))/(1+xi)),util_min))^(1-theta)-1)  
-  }
+  #Here Im taking the max between the argument of the utility and util_min
+  #I use pmax if in some moment we vectorize this
+  aux = (1/(1-theta))*((pmax(w0*l0 - m - phi*((l0^(1+xi))/(1+xi)),util_min))^(1-theta)-1)
   return(aux)
 }
-#Expected utility under no insurance
+#Expected utility under no insurance (simulated version)
+#Just for Gamma distribution!
 E_u0 = function(theta,h,w0){
+  #require("distrEx")
+  #Assigning distribution
+  if(h == 'g'){ #If healthy worker
+    D_m = Gammad(scale=scale_g,shape=shape_g)
+  }
+  else{
+    D_m = Gammad(scale=scale_b,shape=shape_b)
+  }
+  # integrate over medical expenditure m
+  return(E(D_m, u0, theta = theta, h = h, w0 = w0))
+}
+#Expected utility under no insurance (integral version)
+#Check this function, is not giving the right numbers(not using it now)
+E_u0_int = function(theta,h,w0){
   l0 = l0_s(w0)
   integrand_u0 = function(m){ #Creating a function that a returns a vectorized integrand
     aux = vector(length = length(m))
@@ -186,8 +201,18 @@ theta_ins = function(h,w0,w1){
   if(E_u0(theta_L,h,w0) - u1(theta_L,h,w1) < 0){aux = theta_L} #If at lower bound is negative
   #TODO: Uncomment the next line if we have bouded support for Theta
   #else if(E_u0(theta_H,h,w0) - u1(theta_H,h,w1) > 0){aux = theta_H} #This line works only with bounded support for theta
-  else{aux = uniroot(fun, c(initial,final), tol = tol, extendInt = "downX")$root}  #Get the root, 
-  #downX is to tell that is decresing on theta, so can look further than the specified range
+  else{
+    aux = tryCatch(
+      {
+       return(uniroot(fun, c(initial,final), tol = tol, extendInt = "downX")$root) #Get the root, 
+        #downX is to tell that is decresing on theta, so can look further than the specified range
+      },
+      error = function(cond){
+        message(cond)
+        return(Inf)
+      }
+    )
+  }
   return(aux) 
 }
 #Aggregate labor supply for no insurance
@@ -731,23 +756,24 @@ Y_excess_s_fast = function(p){
   aux = Y - (Y_k(Y)+Y_0(Y)+Y_1(Y))^(sigma/(sigma-1))
   return(aux) 
 }
-
-
-# Computing equilibrium ---------------------------------------------------
-#TODO: Solve the corner cases for the thresholds and excess demands
-#Fix the inconsistency with the beliefs out of path (Assign some beliefs there)
-#Try Multiroot also
+#Objective function to minimize
 obj_fun = function(p){  
   Y = p[4]
-  aux  = (k_excess_d_fast(p)/K)^2 + (l0_excess_d_fast(p))^2 +
-       (l1_excess_d_fast(p))^2 + (Y_excess_s_fast(p)/Y)^2
+  aux  = sqrt((k_excess_d_fast(p)/K)^2 + (l0_excess_d_fast(p))^2 +
+                (l1_excess_d_fast(p))^2 + (Y_excess_s_fast(p)/Y)^2)
   return(aux)#Here I need to normalize in some way the Excess demands
 }
+
+#TODO: Solve the corner cases for the thresholds and excess demands
+#Fix the inconsistency with the beliefs out of path (Assign some beliefs there)
+
+# Optim -------------------------------------------------------------------
 # Start the clock!
 ptm = proc.time()
 #Optimize and get the parameters
 #Is stopping  "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH"
-optim_object = optim(par=c(2,1,1,10), fn = obj_fun, method = "L-BFGS-B", 
+#This one works if tol= 1e-8 for the unitroot
+optim_object = optim(par=c(2,1,1,20), fn = obj_fun, method = "L-BFGS-B", 
                   lower = c(0.001,0.001,0.001,0.001),  
                   control = list(trace = 1, factr = 1e-8),
                   upper = c(Inf,Inf,Inf,Inf))
@@ -760,8 +786,8 @@ w0 = p[1]
 w1 = p[2]
 R = p[3]
 Y = p[4]
-#Best result so far: 1.314806e-06 (without arguments) and with error we get 1.871764e-08 (factr = 1e-10)
 
+# nloptr ------------------------------------------------------------------
 #The next ones are quite far from the result
 # Start the clock!
 ptm = proc.time()
@@ -786,7 +812,6 @@ print(nloptim_object)
 # Stop the clock
 proc.time() - ptm
 
-
 #Global optimizer with CRS2 (It doesn't work well)
 ptm = proc.time()
 crs2_sol = crs2lm(x0=c(2,1,1,10), fn = obj_fun,
@@ -796,6 +821,19 @@ crs2_sol = crs2lm(x0=c(2,1,1,10), fn = obj_fun,
              xtol_rel = 1e-6)
 proc.time() - ptm
 crs2_sol
+
+# Multiroot ---------------------------------------------------------------
+#Trying to use Multiroot
+#Doesn't find it, Singular matrix problem
+model = function(p) c(F1 = k_excess_d_fast(p),
+                       F2 = l0_excess_d_fast(p),
+                       F3 = l1_excess_d_fast(p),
+                       F4 = Y_excess_s_fast(p))
+
+#Using exponential to ensure strictly positive values
+(ss = multiroot(model, c(2,1,1,20), useFortran = TRUE))
+
+
 
 # NOTES --------------------------------------------------------------------
 #How do we specify the reservation utility problem? IN the notse gives 0, but 
@@ -879,7 +917,7 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +
   geom_vline(xintercept = I0,linetype=3, colour="black") +
   geom_vline(xintercept = I1,linetype=2, colour="black") +
   geom_text(mapping = aes(label = "X", y = 0, x = X+0.02),colour="blue") +
-  geom_text(mapping = aes(label = "I0", y = 0, x = I0+0.02),colour="blue") +
+  geom_text(mapping = aes(label = "I0", y = 0, x = I0-0.02),colour="blue") +
   geom_text(mapping = aes(label = "I1", y = 0, x = I1+0.02),colour="blue") +
   ggtitle("(w0,w1,R)=(2,1,1.7)")
 ggsave(file="effective_wages_experiment.pdf", width=8, height=5)
