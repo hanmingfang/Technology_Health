@@ -36,14 +36,17 @@ mu_g = 2            #Mean of theta for healthy workers (Truncated Normal)
 mu_b = 0            #Mean of theta for healthy workers (Truncated Normal)
 sd_g = 1            #Standard deviation of theta for healthy workers (Truncated Normal)
 sd_b = 2            #Standard deviation of theta for unhealthy workers (Truncated Normal)
-shape_g = 3         #Shape parameter of theta (Gamma distribution) 
-shape_b = 2         #Shape parameter of theta (Gamma distribution) 
-scale_g = 2         #Scale parameter of theta (Gamma distribution) 
-scale_b = 2         #Scale parameter of theta (Gamma distribution) 
-rate_g = 4          #Rate for exponential distribution for medical exp. healthy workers  
-rate_b = 1          #Rate for exponential distribution for medical exp. unhealthy workers
+shape_g = 2         #Shape parameter of theta (Gamma distribution) 
+shape_b = 0.2       #Shape parameter of theta (Gamma distribution) 
+scale_g = 1         #Scale parameter of theta (Gamma distribution) 
+scale_b = 1         #Scale parameter of theta (Gamma distribution) 
+rate_g = 4          #Rate for exponential distribution for medical exp. healthy workers  (Mean=1/rate)
+rate_b = 0.25        #Rate for exponential distribution for medical exp. unhealthy workers
 util_min = 0.0001   #Minimum consumption minus labor effort a household can have (can't be 0 or blows up)
+#Check papaers of Erick French and Christina Dinadi (Medicaid)
 #This is not in the same way in the document!
+P_0g =  0.5         #Probability of 0 medical expenditure for healthy worker 
+P_0b =  0.1         #Probability of 0 medical expenditure for unhealthy worker
 #Firm
 N = 1               #Range of tasks (upper limit)
 eta = 0.5           #Distribution parameter of the CES
@@ -52,14 +55,14 @@ psi = 1             #Price of intermediates
 sigma = 2           #Elasticity of substitution between tasks
 zeta = 2            #Elasticity of substitution between factors (if fixed), just to define zeta_elas
 #Change this to a small positive number
-C_IN = 0.5          #Health Insurance Fixed Cost
+C_IN = 0.5          #Health Insurance Fixed Cost (we can start with a very low one)
 A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
 lambda_d = 10       #Parameter in sorting function
 alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
 tol = 1e-8          #Tolerance for unitroot, affects computation time
-K = 5               #Capital stock in the economy
+K = 3               #Capital stock in the economy
 # Primitive Functions ---------------------------------------------------------------
 #Distributions
 #Conditional cdf of Households' types
@@ -136,11 +139,6 @@ l1_s = function(w1){
   aux = (w1/phi)^(1/xi)
   return(aux)
 }
-#Reservation wage
-w_res = function(w0){
-  aux = w0/(1+xi)
-  return(aux)
-}
 #Utility function under  insurance
 u1 = function(theta,h,w1){
   l1 = l1_s(w1)
@@ -156,21 +154,24 @@ u0 = function(theta,h,w0,m){
   return(aux)
 }
 #Expected utility under no insurance (simulated version)
-#Just for Gamma distribution!
+#This should be Exponential
+#Include probability on 0
 E_u0 = function(theta,h,w0){
   #require("distrEx")
   #Assigning distribution
   if(h == 'g'){ #If healthy worker
-    D_m = Gammad(scale=scale_g,shape=shape_g)
+    D_m = Exp(rate_g)
+    aux = P_0g*u0(theta,h,w0,m=0) + (1-P_0g)*E(D_m, u0, theta = theta, h = h, w0 = w0)
   }
   else{
-    D_m = Gammad(scale=scale_b,shape=shape_b)
+    D_m = Exp(rate_b)
+    aux = P_0b*u0(theta,h,w0,m=0) + (1-P_0b)*E(D_m, u0, theta = theta, h = h, w0 = w0)
   }
   # integrate over medical expenditure m
-  return(E(D_m, u0, theta = theta, h = h, w0 = w0))
+  return(aux)
 }
 #Expected utility under no insurance (integral version)
-#Check this function, is not giving the right numbers(not using it now)
+#Check this function, is not giving the right numbers (not using it now)
 E_u0_int = function(theta,h,w0){
   l0 = l0_s(w0)
   integrand_u0 = function(m){ #Creating a function that a returns a vectorized integrand
@@ -192,6 +193,7 @@ E_u0_int = function(theta,h,w0){
 }
 #Threshold for household insurance decision
 #TODO: check depending on the distribution of Theta (Now for Gamma)
+#TODO: include \n in the message
 theta_ins = function(h,w0,w1){
   initial = theta_L  #Search over
   #final = theta_H
@@ -773,7 +775,7 @@ ptm = proc.time()
 #Optimize and get the parameters
 #Is stopping  "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH"
 #This one works if tol= 1e-8 for the unitroot
-optim_object = optim(par=c(2,1,1,20), fn = obj_fun, method = "L-BFGS-B", 
+optim_object = optim(par=c(2,1,1,30), fn = obj_fun, method = "L-BFGS-B", 
                   lower = c(0.001,0.001,0.001,0.001),  
                   control = list(trace = 1, factr = 1e-8),
                   upper = c(Inf,Inf,Inf,Inf))
@@ -919,7 +921,7 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +
   geom_text(mapping = aes(label = "X", y = 0, x = X+0.02),colour="blue") +
   geom_text(mapping = aes(label = "I0", y = 0, x = I0-0.02),colour="blue") +
   geom_text(mapping = aes(label = "I1", y = 0, x = I1+0.02),colour="blue") +
-  ggtitle("(w0,w1,R)=(2,1,1.7)")
+  ggtitle(paste("(w0,w1,R,Y) = (",round(w0,2),",",round(w1,2),",",round(R,2),",",round(Y,2),")"))
 ggsave(file="effective_wages_experiment.pdf", width=8, height=5)
 #Plot conditional labor demanded and capital
 #If the medical expenditure is too big, then for health insurance, seems almost 
