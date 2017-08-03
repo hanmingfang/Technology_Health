@@ -46,7 +46,7 @@ rate_b = 0.25       #Rate for exponential distribution for medical exp. unhealth
 util_min = 0.0001   #Minimum consumption minus labor effort a household can have (can't be 0 or blows up)
 #Check papaers of Erick French and Christina Dinadi (Medicaid)
 #This is not in the same way in the document!
-P_0g =  0.1         #Probability of 0 medical expenditure for healthy worker 
+P_0g =  0.3         #Probability of 0 medical expenditure for healthy worker 
 P_0b =  0.1         #Probability of 0 medical expenditure for unhealthy worker
 theta_ins_final = 10 #As we can not evaluate f(Inf) I use an upper bound number, but allowing uniroot to extend it in theta_ins
 #Firm
@@ -133,26 +133,24 @@ C_A = function(i){
 # Equilibrium Equations ---------------------------------------------------
 #Individual labor suply for No insurance
 l0_s = function(w0){
-  aux = (w0/phi)^(1/xi)
+  aux = 1
   return(aux)
 }
 #Individual labor suply for insurance
 l1_s = function(w1){
-  aux = (w1/phi)^(1/xi)
+  aux = 1
   return(aux)
 }
 #Utility function under  insurance
 u1 = function(theta,h,w1){
   l1 = l1_s(w1)
-  aux = (1/(1-theta))*((w1*l1 - phi*((l1^(1+xi))/(1+xi)))^(1-theta)-1)
+  aux = -exp(-theta*(w1*l1))
   return(aux)
 }
 #Utility function under No insurance
 u0 = function(theta,h,w0,m){
   l0 = l0_s(w0)
-  #Here Im taking the max between the argument of the utility and util_min
-  #I use pmax if in some moment we vectorize this
-  aux = (1/(1-theta))*((pmax(w0*l0 - m - phi*((l0^(1+xi))/(1+xi)),util_min))^(1-theta)-1)
+  aux =  -exp(-theta*(w0*l0 - m))
   return(aux)
 }
 #Expected utility under no insurance (simulated version)
@@ -167,27 +165,6 @@ E_u0 = function(theta,h,w0){
   }
   return(aux)
 }
-#Expected utility under no insurance (integral version)
-#Check this function, is not giving the right numbers (not using it now)
-E_u0_int = function(theta,h,w0){
-  l0 = l0_s(w0)
-  integrand_u0 = function(m){ #Creating a function that a returns a vectorized integrand
-    aux = vector(length = length(m))
-    if(h == 'g'){ #If healthy worker
-      for(i in 1:length(m)){
-        aux[i] = u0(theta,h,w0,m = m[i])*h_g(m[i]) #Utility times pdf of healthy, for each medical shock
-      }
-    }
-    else{
-      for(i in 1:length(m)){
-        aux[i] = u0(theta,h,w0,m = m[i])*h_b(m[i]) #Utility times pdf of unhealthy, for each medical shock
-      }
-    }
-    return(aux)
-  }
-  integral = integrate(integrand_u0, lower = m_L, upper = m_F)
-  return(integral$value) #return just the value of the inetgral
-}
 #Threshold for household insurance decision
 #TODO: include \n in the message
 theta_ins = function(h,w0,w1){
@@ -196,7 +173,9 @@ theta_ins = function(h,w0,w1){
   #As we can not evaluate f(Inf) I use a lower number, but allowing uniroot to extend it
   final = theta_ins_final 
   fun = function (theta) E_u0(theta,h,w0) - u1(theta,h,w1)   #This is a decreasing function of theta
-  if(E_u0(theta_L,h,w0) - u1(theta_L,h,w1) < 0){aux = theta_L} #If at lower bound is negative
+  if(E_u0(theta_L,h,w0) - u1(theta_L,h,w1) < 0){
+    aux = theta_L
+    } #If at lower bound is negative
   #TODO: Uncomment the next line if we have bouded support for Theta
   #else if(E_u0(theta_H,h,w0) - u1(theta_H,h,w1) > 0){aux = theta_H} #This line works only with bounded support for theta
   else{
@@ -376,6 +355,7 @@ q_k = function(R,i,Y){
 #TODO: Check monotonicity of the function
 #Check monotonicity of the threshold itself (on wages)
 #There is a discontinuity too
+#TODO: Adapt the function for Adverse selection too
 X_tilde = function(w0,w1,Y){
   LHS = function(i) C_IN/(((B(i)*(sigma-1)/sigma)^(sigma-1))*Y/sigma)
   #Do not call the same function more than one time if is not neccesary
@@ -774,12 +754,18 @@ proc.time() - ptm
 #Global optimizer with CRS2 (is the best working now)
 ptm = proc.time()
 crs2_sol = crs2lm(x0=c(2,1,1,10), fn = obj_fun,
-             lower = c(0.001,0.3,0.001,0.001),
+             lower = c(0.001,0.001,0.001,0.001),
              upper = c(50,50,50,500),
              maxeval = 10000,
              xtol_rel = 1e-6)
 proc.time() - ptm
 crs2_sol
+p = crs2_sol$par
+w0 = p[1]
+w1 = p[2]
+R = p[3]
+Y = p[4]
+
 
 # Multiroot ---------------------------------------------------------------
 #Trying to use Multiroot
@@ -820,13 +806,23 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +
   stat_function(fun=w_hat0i, geom="line", aes(colour = "what0")) + xlab("i") + 
   ylab("") + stat_function(fun=w_hat1i, geom="line",aes(colour = "what1"))
 #Check crossing of function for thresholds
-ggplot(data.frame(x=c(N-1,5)), aes(x=x)) + 
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=fun, geom="line", aes(colour = "Function for threshold")) + xlab("i") + 
   ylab("")
 #Check for expected Medical expenditure
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=Mi, geom="line", aes(colour = "Mi")) + xlab("i") + 
-  ylab("") 
+  ylab("")
+#Graphing Advantageous selection
+#Is very non-monotonic, like oscilating
+Adv_sel = function(w0) F_b(theta_ins('b',w0,1)) - F_g(theta_ins('g',w0,1))
+ggplot(data.frame(x=c(0,10)), aes(x=x)) + 
+  stat_function(fun = Vectorize(Adv_sel), geom="line", aes(colour = "Advan Sel")) + xlab("w0") + ylab("")
+#Graphing X_tilde as a function of w0
+#Good! It seems that X_tilde is continuous and monotonic with respect to changes in wages 
+X_tilde_plot = function(w0) X_tilde(w0,1,10)
+ggplot(data.frame(x=c(2.75,4.75)), aes(x=x)) + 
+  stat_function(fun = Vectorize(X_tilde_plot), geom="line", aes(colour = "X_tilde")) + xlab("w0") + ylab("")
 ###
 #Plot to show that FOSD in Assumption 1 holds for this case
 ggplot(data.frame(x=c(0, 15)), aes(x=x)) + 
