@@ -101,8 +101,11 @@ gamma_prod = function(i){
 }   
 #Sorting of workers 
 #TODO: edit this function
+#Making that integrates to 1
+norm_const_delta_sort = integrate(Vectorize(function(i) exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d))),
+                                  lower = N-1, upper = N)$value 
 delta_sort = function(i){
-  aux = exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d))
+  aux = exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d))/norm_const_delta_sort
   return(aux)
 }
 #Capital productivity
@@ -235,7 +238,7 @@ Chi_0g = function(w0,w1,i){
     aux = Chi_1g(w0,w1,i)
   }
   else{
-    aux = delta_sort(i)*(L0_s('g',w0,w1)/(L0_s('g',w0,w1) + L0_s('b',w0,w1))) 
+    aux = (delta_sort(i)*L0_s('g',w0,w1)/(delta_sort(i)*L0_s('g',w0,w1) + L0_s('b',w0,w1))) 
   }
   return(aux)
 }
@@ -247,7 +250,7 @@ Chi_1g = function(w0,w1,i){
     aux = Chi_0g(w0,w1,i)
   }
   else{
-    aux = delta_sort(i)*(L1_s('g',w0,w1)/(L1_s('g',w0,w1) + L1_s('b',w0,w1))) 
+    aux = (delta_sort(i)*L1_s('g',w0,w1)/(delta_sort(i)*L1_s('g',w0,w1) + L1_s('b',w0,w1))) 
   }
   return(aux)
 }
@@ -382,16 +385,16 @@ X_tilde = function(w0,w1,Y){
   L1_s_b_var = L1_s_memo('b',w0,w1)
   #Assigning the same beliefs if no labor supply
   if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
-    Chi_0gi = function(i) delta_sort(i)*(L1_s_g_var)/(L1_s_g_var + L1_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
   else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
-    Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
   }
   else{
-    Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
   gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
   w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
@@ -431,16 +434,16 @@ I_tilde0 = function(w0,w1,R,Y){
   L1_s_b_var = L1_s_memo('b',w0,w1)
   #Assigning the same beliefs if no labor supply
   if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
-    Chi_0gi = function(i) delta_sort(i)*(L1_s_g_var)/(L1_s_g_var + L1_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
   else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
-    Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
   }
   else{
-    Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
   gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
   w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
@@ -473,16 +476,16 @@ I_tilde1 = function(w0,w1,R,Y){
   L1_s_b_var = L1_s_memo('b',w0,w1)
   #Assigning the same beliefs if no labor supply
   if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
-    Chi_0gi = function(i) delta_sort(i)*(L1_s_g_var)/(L1_s_g_var + L1_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
   else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
-    Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
   }
   else{
-    Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
   gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
   E_mg = E_m('g')
@@ -508,60 +511,6 @@ I_tilde1 = function(w0,w1,R,Y){
 }
 #Indifference threshold between capital and insurance with memoise
 I_tilde1_memo = memoise(I_tilde1) 
-#Excess demand for Capital
-k_excess_d = function(w0,w1,R,Y){
-  I0 = I_tilde0(w0,w1,R,Y)
-  I1 = I_tilde1(w0,w1,R,Y)
-  integrand_k = function(r){ #Creating a function that  returns a vectorized integrand (recieves a vector with 
-    #values to be evaluated at
-    aux = vector(length = length(r))
-    for(i in 1:length(r)){
-      aux[i] = k(R,r[i],Y) #integrand capital demanded, Remember that is r[i]
-    }
-    return(aux)
-  }
-  integral = integrate(integrand_k, lower = N-1, upper = min(I0,I1)) #Bounds specified in the document
-  aux = integral$value-K
-  return(aux)  
-}
-#Excess demand for Capital Fast
-k_excess_d_fast = function(p){
-  w0 = p[1]
-  w1 = p[2]
-  R = p[3]
-  Y = p[4]
-  I0 = I_tilde0(w0,w1,R,Y)
-  I1 = I_tilde1(w0,w1,R,Y)
-  L1_s_g_var = L1_s('g',w0,w1)
-  L1_s_b_var = L1_s('b',w0,w1)
-  Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
-  gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
-  E_mg = E_m('g')
-  E_mb = E_m('b')
-  Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
-  w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
-  p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
-  ###
-  R_hati = function(i) R/z_prod(i)
-  p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
-  ###
-  integrand_k = function(r){ #Creating a function that  returns a vectorized integrand (recieves a vector with 
-    #values to be evaluated at
-    aux = vector(length = length(r))
-    for(i in 1:length(r)){
-      zetai = zeta_elas(r[i])
-      pki = p_ki(r[i])
-      Rhati = R_hati(r[i])
-      Bi = B(r[i])
-      yki = (Y*((sigma-1)/sigma)^sigma)*((Bi*(eta*pki^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(Rhati + psi*pki^zetai))^sigma
-      aux[i] = yki/(Bi*(eta*pki^(zetai-1)+(1-eta))^(zetai/(zetai-1))) #integrand capital demanded, Remember that is r[i]
-    }
-    return(aux)
-  }
-  integral = integrate(integrand_k, lower = N-1, upper = min(I0,I1)) #Bounds specified in the document
-  aux = integral$value-K
-  return(aux)  
-}
 #Excess demand for Capital Fast and Vectorized (the fastest)
 k_excess_d_fast_vec = function(p){
   w0 = p[1]
@@ -586,65 +535,6 @@ k_excess_d_fast_vec = function(p){
   aux = integral$value-K
   return(aux)
 }
-#Excess demand for labor without insurance
-#TODO: CHECK THIS FOR NON INTERIOR CASES
-l0_excess_d = function(w0,w1,R,Y){
-  X = X_tilde(w0,w1,Y)
-  I0 = I_tilde0(w0,w1,R,Y)
-  I1 = I_tilde1(w0,w1,R,Y)
-  if(I0<I1){ #Checking for interior cases
-    integrand_l0 = function(r){ #Creating a function that a returns a vectorized integrand
-      aux = vector(length = length(r))
-      for(i in 1:length(r)){
-        aux[i] = l_hat0(w0,w1,r[i],Y)/gamma_prod_bar_0(w0,w1,r[i]) #integrand of l0 demanded
-      }
-      return(aux)
-    }
-    integral = integrate(integrand_l0, lower = I0, upper = X) #Bounds specified in the document
-    aux = integral$value - (L0_s('g',w0,w1)+L0_s('b',w0,w1)) #subtracting Labor supplied for no insurance
-  }
-  else{aux = 0 - (L0_s('g',w0,w1)+L0_s('b',w0,w1))}#If there is no labor without insurance in equilibrium
-  return(aux)  
-}
-#Excess demand for labor without insurance
-#TODO: CHECK THIS FOR NON INTERIOR CASES
-l0_excess_d_fast = function(p){
-  w0 = p[1]
-  w1 = p[2]
-  R = p[3]
-  Y = p[4]
-  X = X_tilde(w0,w1,Y)
-  I0 = I_tilde0(w0,w1,R,Y)
-  I1 = I_tilde1(w0,w1,R,Y)
-  L0_s_g_var = L0_s('g',w0,w1)
-  L0_s_b_var = L0_s('b',w0,w1)
-  Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-  gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
-  w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
-  p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
-  if(I0<I1 & I0<X){ #Checking for interior cases
-    integrand_l0 = function(r){ #Creating a function that a returns a vectorized integrand
-      aux = vector(length = length(r))
-      for(i in 1:length(r)){ #Inside the index of the tasks are r[i] and not i
-        zetai = zeta_elas(r[i])
-        Bi = B(r[i])
-        p0i = p_0i(r[i])
-        what0i = w_hat0i(r[i]) 
-        gammaprodbar0i = gamma_prod_bar_0i(r[i])
-        y0i = (Y*((sigma-1)/sigma)^sigma)*((Bi*(eta*p0i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(what0i + psi*p0i^zetai))^sigma
-        lhat0i = y0i/(Bi*(eta*p0i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))
-        aux[i] = lhat0i/gammaprodbar0i #integrand of l0 demanded
-      }
-      return(aux)
-    }
-    integral = integrate(integrand_l0, lower = I0, upper = X) #Bounds specified in the document
-    aux = integral$value - (L0_s('g',w0,w1)+L0_s('b',w0,w1)) #subtracting Labor supplied for no insurance
-  }
-  else{aux = 0 - (L0_s('g',w0,w1)+L0_s('b',w0,w1))}#If there is no labor without insurance in equilibrium
-  return(aux)  
-}
-#Excess demand fo labor with insurance
-#TODO: CHECK THIS FOR NON INTERIOR CASES
 #Excess demand for labor without insurance fast and vectorized
 #TODO: CHECK THIS FOR NON INTERIOR CASES
 l0_excess_d_fast_vec = function(p){
@@ -661,16 +551,16 @@ l0_excess_d_fast_vec = function(p){
   L1_s_b_var = L1_s_memo('b',w0,w1)
   #Assigning the same beliefs if no labor supply
   if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
-    Chi_0gi = function(i) delta_sort(i)*(L1_s_g_var)/(L1_s_g_var + L1_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
   else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
-    Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
   }
   else{
-    Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
   gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
   w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
@@ -691,63 +581,6 @@ l0_excess_d_fast_vec = function(p){
   return(aux)  
 }
 #Excess demand fo labor with insurance
-l1_excess_d = function(w0,w1,R,Y){
-  X = X_tilde(w0,w1,Y)
-  I0 = I_tilde0(w0,w1,R,Y)
-  I1 = I_tilde1(w0,w1,R,Y)
-  integrand_l1 = function(r){ #Creating a function that a returns a vectorized integrand
-    aux = vector(length = length(r))
-    for(i in 1:length(r)){
-      aux[i] = l_hat1(w0,w1,r[i],Y)/gamma_prod_bar_1(w0,w1,r[i]) #integrand of l1 demanded
-    }
-    return(aux)
-  }
-  integral = integrate(integrand_l1, lower = max(I1,X), upper = N) #Bounds specified in the document
-  aux = integral$value - (L1_s('g',w0,w1)+L1_s('b',w0,w1)) #subtracting Labor supplied for insurance
-  return(aux)  
-}
-#Excess demand fo labor with insurance
-#TODO: CHECK THIS FOR NON INTERIOR CASES
-l1_excess_d_fast = function(p){
-  w0 = p[1]
-  w1 = p[2]
-  R = p[3]
-  Y = p[4]
-  X = X_tilde(w0,w1,Y)
-  I0 = I_tilde0(w0,w1,R,Y)
-  I1 = I_tilde1(w0,w1,R,Y)
-  ###
-  L1_s_g_var = L1_s('g',w0,w1)
-  L1_s_b_var = L1_s('b',w0,w1)
-  Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
-  gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
-  E_mg = E_m('g')
-  E_mb = E_m('b')
-  Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
-  w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
-  p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
-  integrand_l1 = function(r){ #Creating a function that a returns a vectorized integrand
-    aux = vector(length = length(r))
-    for(i in 1:length(r)){
-      gammaprodbar1i = gamma_prod_bar_1i(r[i])
-      p1i = p_1i(r[i])
-      zetai = zeta_elas(r[i])
-      what1i = w_hat1i(r[i])
-      Bi = B(r[i])
-      y1i = (Y*((sigma-1)/sigma)^sigma)*((Bi*(eta*p1i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(what1i + psi*p1i^zetai))^sigma
-      lhat1i = y1i/(Bi*(eta*p1i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))
-      aux[i] = lhat1i/gammaprodbar1i #integrand of l1 demanded
-    }
-    return(aux)
-  }
-  if(max(I1,X)<N){
-    integral = integrate(integrand_l1, lower = max(I1,X), upper = N) #Bounds specified in the document
-    aux = integral$value - (L1_s('g',w0,w1)+L1_s('b',w0,w1)) #subtracting Labor supplied for insurance
-  }
-  else{aux = 0 - (L1_s('g',w0,w1)+L1_s('b',w0,w1))}
-  return(aux)  
-}
-#Excess demand fo labor with insurance
 #TODO: CHECK THIS FOR NON INTERIOR CASES
 l1_excess_d_fast_vec = function(p){
   w0 = p[1]
@@ -764,16 +597,16 @@ l1_excess_d_fast_vec = function(p){
   L1_s_b_var = L1_s_memo('b',w0,w1)
   #Assigning the same beliefs if no labor supply
   if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
-    Chi_0gi = function(i) delta_sort(i)*(L1_s_g_var)/(L1_s_g_var + L1_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
   else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
-    Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
   }
   else{
-    Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
   gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
   E_mg = E_m('g')
@@ -797,139 +630,6 @@ l1_excess_d_fast_vec = function(p){
 }
 #Total consumption good
 #TODO: Include indicator function, boudarie cases and Review
-Y_excess_s = function(w0,w1,R,Y){
-  X = X_tilde(w0,w1,Y)
-  I0 = I_tilde0(w0,w1,R,Y)
-  I1 = I_tilde1(w0,w1,R,Y)  
-  Y_k = function(Y){
-    integrand_yk = function(r){ #Creating a function that returns a vectorized integrand
-      aux = vector(length = length(r))
-      for(i in 1:length(r)){
-        aux[i] = (y_k(R,r[i],Y))^((sigma-1)/sigma) #integrand of y_k in the consumption good production
-      }
-      return(aux)
-    }
-    integral = integrate(integrand_yk, lower = N-1, upper = min(I1,I0))
-    aux = integral$value
-    return(aux)
-  }
-  Y_0 = function(Y){
-    integrand_y0 = function(r){ #Creating a function that returns a vectorized integrand
-      aux = vector(length = length(r))
-      for(i in 1:length(r)){
-        aux[i] = (y_0(w0,w1,r[i],Y))^((sigma-1)/sigma) #integrand of y_0 in the consumption good production
-      }
-      return(aux)
-    }
-    integral = integrate(integrand_y0, lower = I0, upper = X)
-    if(I0<I1){aux = integral$value}
-    else{aux = 0}
-    return(aux)
-  }
-  Y_1 = function(Y){
-    integrand_y1 = function(r){ #Creating a function that returns a vectorized integrand
-      aux = vector(length = length(r))
-      for(i in 1:length(r)){
-        aux[i] = (y_1(w0,w1,r[i],Y))^((sigma-1)/sigma) #integrand of y_1 in the consumption good production
-      }
-      return(aux)
-    }
-    integral = integrate(integrand_y1, lower = max(I1,X), upper = N)
-    aux = integral$value
-    return(aux)
-  }
-  aux = Y - (Y_k(Y)+Y_0(Y)+Y_1(Y))^(sigma/(sigma-1))
-  return(aux) 
-}
-#Total consumption good
-#TODO: Include indicator function, boudarie cases and Review
-Y_excess_s_fast = function(p){
-  w0 = p[1]
-  w1 = p[2]
-  R = p[3]
-  Y = p[4]
-  X = X_tilde(w0,w1,Y)
-  I0 = I_tilde0(w0,w1,R,Y)
-  I1 = I_tilde1(w0,w1,R,Y)  
-  Y_k = function(Y){
-    integrand_yk = function(r){ #Creating a function that returns a vectorized integrand
-      aux = vector(length = length(r))
-      R_hati = function(i) R/z_prod(i)
-      p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
-      for(i in 1:length(r)){
-        pki = p_ki(r[i])
-        zetai = zeta_elas(r[i])
-        Rhati = R_hati(r[i])
-        Bi = B(r[i])
-        yki = (Y*((sigma-1)/sigma)^sigma)*((Bi*(eta*pki^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(Rhati + psi*pki^zetai))^sigma
-        aux[i] = (yki)^((sigma-1)/sigma) #integrand of y_k in the consumption good production
-      }
-      return(aux)
-    }
-    integral = integrate(integrand_yk, lower = N-1, upper = min(I1,I0))
-    aux = integral$value
-    return(aux)
-  }
-  Y_0 = function(Y){
-    integrand_y0 = function(r){ #Creating a function that returns a vectorized integrand
-      L0_s_g_var = L0_s('g',w0,w1)
-      L0_s_b_var = L0_s('b',w0,w1)
-      Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-      gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
-      w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
-      p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
-      aux = vector(length = length(r))
-      for(i in 1:length(r)){
-        p0i = p_0i(r[i])
-        zetai = zeta_elas(r[i])
-        what0i = w_hat0i(r[i])
-        Bi = B(r[i])
-        y0i = (Y*((sigma-1)/sigma)^sigma)*((Bi*(eta*p0i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(what0i + psi*p0i^zetai))^sigma  
-        aux[i] = (y0i)^((sigma-1)/sigma) #integrand of y_0 in the consumption good production
-      }
-      return(aux)
-    }
-    if(I0<I1){
-      integral = integrate(integrand_y0, lower = I0, upper = X)
-      aux = integral$value
-    }
-    else{aux = 0}
-    return(aux)
-  }
-  Y_1 = function(Y){
-    integrand_y1 = function(r){ #Creating a function that returns a vectorized integrand
-      L1_s_g_var = L1_s('g',w0,w1)
-      L1_s_b_var = L1_s('b',w0,w1)
-      Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
-      gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
-      E_mg = E_m('g')
-      E_mb = E_m('b')
-      Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
-      w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
-      p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
-      aux = vector(length = length(r))
-      for(i in 1:length(r)){
-        p1i = p_1i(r[i])
-        zetai = zeta_elas(r[i])
-        what1i = w_hat1i(r[i])
-        Bi = B(r[i])
-        y1i = (Y*((sigma-1)/sigma)^sigma)*((Bi*(eta*p1i^(zetai-1)+(1-eta))^(zetai/(zetai-1)))/(what1i + psi*p1i^zetai))^sigma
-        aux[i] = (y1i)^((sigma-1)/sigma) #integrand of y_1 in the consumption good production
-      }
-      return(aux)
-    }
-    if(max(I1,X)<N){
-      integral = integrate(integrand_y1, lower = max(I1,X), upper = N)
-      aux = integral$value
-    }
-    else{aux = 0}
-    return(aux)
-  }
-  aux = Y - (Y_k(Y)+Y_0(Y)+Y_1(Y))^(sigma/(sigma-1))
-  return(aux) 
-}
-#Total consumption good
-#TODO: Include indicator function, boudarie cases and Review
 Y_excess_s_fast_vec = function(p){
   w0 = p[1]
   w1 = p[2]
@@ -944,16 +644,16 @@ Y_excess_s_fast_vec = function(p){
   L1_s_b_var = L1_s_memo('b',w0,w1)
   #Assigning the same beliefs if no labor supply
   if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
-    Chi_0gi = function(i) delta_sort(i)*(L1_s_g_var)/(L1_s_g_var + L1_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
   else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
-    Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
   }
   else{
-    Chi_0gi = function(i) delta_sort(i)*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
-    Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
   Y_k = function(Y){
     R_hati = function(i) R/z_prod(i)
@@ -1074,7 +774,7 @@ proc.time() - ptm
 #Global optimizer with CRS2 (is the best working now)
 ptm = proc.time()
 crs2_sol = crs2lm(x0=c(2,1,1,10), fn = obj_fun,
-             lower = c(0.001,0.5,0.001,0.001),
+             lower = c(0.001,0.3,0.001,0.001),
              upper = c(50,50,50,500),
              maxeval = 10000,
              xtol_rel = 1e-6)
@@ -1106,7 +806,7 @@ dir = '~/Dropbox/Technology/Codes/Technology_Health/plots/'
 setwd(dir)
 #Wages to play
 w0 = 2.5
-w1 = 2.4
+w1 = 1
 R = 1.7
 #Need to specify also total output to play
 Y = 10
