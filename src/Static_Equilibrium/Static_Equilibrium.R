@@ -26,7 +26,7 @@ setwd(dir)
 
 # Parameters --------------------------------------------------------------
 #Household 
-xi = 0.455          #Utility function
+xi = 1              #Utility function
 phi = 1             #Cost of labor effort  
 lambda_g = 0.5      #Measure healthy workers
 theta_L = 0         #Domain for theta
@@ -1049,8 +1049,8 @@ ptm = proc.time()
 #Optimize and get the parameters
 nloptim_object = nloptr(x0=c(2,1,1,10), eval_f = obj_fun,
                       lb = c(0.001,0.001,0.001,0.001), 
-                      opts= list(algorithm ="NLOPT_GN_ORIG_DIRECT", maxeval = 100000, xtol_rel = 1.0e-8),
-                      ub = c(50,50,50,500))
+                      opts= list(algorithm ="NLOPT_GN_ORIG_DIRECT", maxeval = 10000, xtol_abs = 1.0e-10),
+                      ub = c(10,10,10,100))
 print(nloptim_object)  
 # Stop the clock
 proc.time() - ptm
@@ -1065,17 +1065,17 @@ ptm = proc.time()
 #Optimize and get the parameters
 nloptim_object = nloptr(x0= nloptim_object$solution, eval_f = obj_fun,
                         lb = c(0.001,0.001,0.001,0.001), 
-                        opts= list(algorithm ="NLOPT_LN_COBYLA",xtol_rel =1.0e-8, maxeval = 10000),
-                        ub = c(Inf,Inf,Inf,Inf))
+                        opts= list(algorithm ="NLOPT_LN_COBYLA",xtol_absl =1.0e-10, maxeval = 10000),
+                        ub = c(10,10,10,100))
 print(nloptim_object)  
 # Stop the clock
 proc.time() - ptm
 
-#Global optimizer with CRS2 (It doesn't work well)
+#Global optimizer with CRS2 (is the best working now)
 ptm = proc.time()
 crs2_sol = crs2lm(x0=c(2,1,1,10), fn = obj_fun,
-             lower = c(0.001,0.001,0.001,0.001),
-             upper = c(10,10,10,100),
+             lower = c(0.001,0.5,0.001,0.001),
+             upper = c(50,50,50,500),
              maxeval = 10000,
              xtol_rel = 1e-6)
 proc.time() - ptm
@@ -1111,13 +1111,21 @@ R = 1.7
 #Need to specify also total output to play
 Y = 10
 #New plots
-#Check crossing of effective wages
-ggplot(data.frame(x=c(N-1,5)), aes(x=x)) + 
+#Check for Proportions of Helathy workers
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
+  stat_function(fun=Chi_0gi, geom="line", aes(colour = "Chi_0g")) + xlab("i") + 
+  ylab("") + stat_function(fun=Chi_1gi, geom="line",aes(colour = "Chi_1g"))
+#Check crossing of effective wages 
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=w_hat0i, geom="line", aes(colour = "what0")) + xlab("i") + 
   ylab("") + stat_function(fun=w_hat1i, geom="line",aes(colour = "what1"))
 #Check crossing of function for thresholds
 ggplot(data.frame(x=c(N-1,5)), aes(x=x)) + 
   stat_function(fun=fun, geom="line", aes(colour = "Function for threshold")) + xlab("i") + 
+  ylab("")
+#Check for expected Medical expenditure
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
+  stat_function(fun=Mi, geom="line", aes(colour = "Mi")) + xlab("i") + 
   ylab("") 
 ###
 #Plot to show that FOSD in Assumption 1 holds for this case
