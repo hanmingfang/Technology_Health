@@ -47,8 +47,8 @@ zeta = 2            #Elasticity of substitution between factors (if fixed), just
 C_IN = 0.5          #Health Insurance Fixed Cost
 A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
-lambda_d = 5        #Parameter in sorting function
-alpha_d = 1         #Parameter in sorting function
+lambda_d = 10        #Parameter in sorting function
+alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
 tol = 1e-3          #Tolerance for unitroot, affects computation time
 K = 0.2             #Capital stock in the economy
@@ -199,27 +199,15 @@ Chi_0g = function(w0,w1,i){
 #Endogenous proportion of healthy workers for health insurance
 #TODO: edit this function
 Chi_1g = function(w0,w1,i){
-  aux =  exp(2*lambda_d*i - 5*alpha_d)/(1+exp(2*lambda_d*i - 5*alpha_d))*(L1_s('g',w0,w1)/(L1_s('g',w0,w1) + L1_s('b',w0,w1)))
+  aux =  delta_sort(i)*(L1_s('g',w0,w1)/(L1_s('g',w0,w1) + L1_s('b',w0,w1)))
   return(aux)
 }
 #Expected expenditure shock
+#TODO: edit this function, just for Exponentialnow
 E_m = function(h){
-  integrand_exp = function(m){ #Creating a function that a returns a vectorized integrand
-    aux = vector(length = length(m))
-    if(h == 'g'){ #If healthy worker
-      for(i in 1:length(m)){
-        aux[i] = m[i]*h_g(m[i]) #integrand of expectation healty, for each medical shock
-      }
-    }
-    else{
-      for(i in 1:length(m)){
-        aux[i] = m[i]*h_b(m[i]) #integrand of expectation unhealty, for each medical shock
-      }
-    }
-    return(aux)
-  }
-  integral = integrate(integrand_exp, lower = m_L, upper = m_F)
-  return(integral$value) #return just the value of the inetgral
+  if(h == 'g'){aux = 1/rate_g}
+  else{aux = 1/rate_b}
+  return(aux)
 }
 #Expected firm's medical expenditure
 M = function(w0,w1,i){
@@ -335,10 +323,23 @@ q_k = function(R,i,Y){
 #Indifference threshold between insurance and not insurance
 X_tilde = function(w0,w1,Y){
   LHS = function(i) C_IN/(((B(i)*(sigma-1)/sigma)^(sigma-1))*Y/sigma)
-  p_0i = function(i) p_0(w0=w0,w1=w1,i)
-  p_1i = function(i) p_1(w0=w0,w1=w1,i)
-  w_hat0i = function(i) w_hat0(w0=w0,w1=w1,i)
-  w_hat1i = function(i) w_hat1(w0=w0,w1=w1,i)
+  #Do not call the same function more than one time if is not neccesary
+  L0_s_g_var = L0_s('g',w0,w1)
+  L0_s_b_var = L0_s('b',w0,w1)
+  Chi_0gi = function(i) 1*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
+  gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
+  w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
+  p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
+  ###
+  L1_s_g_var = L1_s('g',w0,w1)
+  L1_s_b_var = L1_s('b',w0,w1)
+  Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+  gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
+  E_mg = E_m('g')
+  E_mb = E_m('b')
+  Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
+  w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
+  p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
   RHS1 = function(i) (((eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i(i)+psi*p_1i(i)^zeta_elas(i)))^(sigma-1)
   RHS0 = function(i) (((eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i(i)+psi*p_0i(i)^zeta_elas(i)))^(sigma-1)
   
@@ -358,10 +359,16 @@ X_tilde = function(w0,w1,Y){
 #Indifference threshold between capital and not insurance
 I_tilde0 = function(w0,w1,R,Y){
   LHS = function(i) C_A(i)/(((B(i)*(sigma-1)/sigma)^(sigma-1))*Y/sigma)
-  p_0i = function(i) p_0(w0=w0,w1=w1,i)
-  p_ki = function(i) p_k(R=R,i)
-  w_hat0i = function(i) w_hat0(w0=w0,w1=w1,i)
-  R_hati = function(i) R_hat(R=R,i)
+  #Do not call the same function more than one time if is not neccesary
+  L0_s_g_var = L0_s('g',w0,w1)
+  L0_s_b_var = L0_s('b',w0,w1)
+  Chi_0gi = function(i) 1*(L0_s_g_var)/(L0_s_g_var + L0_s_b_var)
+  gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
+  w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
+  p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
+  ###
+  R_hati = function(i) R/z_prod(i)
+  p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
   RHSk = function(i) (((eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i)+psi*p_ki(i)^zeta_elas(i)))^(sigma-1)
   RHS0 = function(i) (((eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i(i)+psi*p_0i(i)^zeta_elas(i)))^(sigma-1)
   
@@ -380,10 +387,19 @@ I_tilde0 = function(w0,w1,R,Y){
 #Indifference threshold between capital and insurance
 I_tilde1 = function(w0,w1,R,Y){
   LHS = function(i) (C_IN-C_A(i))/(((B(i)*(sigma-1)/sigma)^(sigma-1))*Y/sigma)
-  p_1i = function(i) p_1(w0=w0,w1=w1,i)
-  p_ki = function(i) p_k(R=R,i)
-  w_hat1i = function(i) w_hat1(w0=w0,w1=w1,i)
-  R_hati = function(i) R_hat(R=R,i)
+  ###
+  L1_s_g_var = L1_s('g',w0,w1)
+  L1_s_b_var = L1_s('b',w0,w1)
+  Chi_1gi = function(i) delta_sort(i)*((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))
+  gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
+  E_mg = E_m('g')
+  E_mb = E_m('b')
+  Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
+  w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
+  p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
+  ###
+  R_hati = function(i) R/z_prod(i)
+  p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
   RHSk = function(i) (((eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i)+psi*p_ki(i)^zeta_elas(i)))^(sigma-1)
   RHS1 = function(i) (((eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i(i)+psi*p_1i(i)^zeta_elas(i)))^(sigma-1)
   
@@ -479,7 +495,7 @@ Y_excess_s = function(w0,w1,R,Y){
       return(aux)
     }
     integral = integrate(integrand_y0, lower = I0, upper = X)
-    if(I0_Y(Y)<I1_Y(Y)){aux = integral$value}
+    if(I0<I1){aux = integral$value}
     else{aux = 0}
     return(aux)
   }
@@ -499,52 +515,8 @@ Y_excess_s = function(w0,w1,R,Y){
   return(aux) 
 }
 
-#Newton-Raphson algorithm (just to try)
-newton.raphson <- function(f, a, b, tol = 1e-5, n = 1000) {
-  x0 <- a # Set start value to supplied lower bound
-  k <- n # Initialize for iteration results
-  
-  # Check the upper and lower bounds to see if approximations result in 0
-  fa <- f(a)
-  if (fa == 0.0) {
-    return(a)
-  }
-  
-  fb <- f(b)
-  if (fb == 0.0) {
-    return(b)
-  }
-  
-  for (i in 1:n) {
-    dx <- genD(func = f, x = x0)$D[1] # First-order derivative f'(x0)
-    x1 <- x0 - (f(x0) / dx) # Calculate next value x1
-    k[i] <- x1 # Store x1
-    # Once the difference between x0 and x1 becomes sufficiently small, output the results.
-    if (abs(x1 - x0) < tol) {
-      root.approx <- tail(k, n=1)
-      res <- list('root approximation' = root.approx, 'iterations' = k)
-      return(res)
-    }
-    # If Newton-Raphson has not yet reached convergence set x1 as x0 and continue
-    x0 <- x1
-  }
-  print('Too many iterations in method')
-}
-
-
-Rcpp::sourceCpp('lib/l0_s_cpp.cpp')
-
-
 
 # Testing Rcpp ------------------------------------------------------------
-
-l0_s_vector_R = function(w0){
-  aux = vector(length = length(w0))
-  for(i in 1:length(w0)){
-    aux[i] = (w0[i]/phi)^(1/xi) 
-  }
-  return(aux)
-}
 
 Rcpp::sourceCpp('~/Dropbox/Technology/Codes/Technology_Health/lib/l0_s_cpp.cpp')
 
@@ -559,3 +531,5 @@ Rcpp::sourceCpp('~/Dropbox/Technology/Codes/Technology_Health/lib/u0_cpp.cpp')
 microbenchmark(times=1000, unit="ms", u0(theta = 0.5, h='g', w0 = 2.4, m = trial_seq),
                u0_cpp(theta = 0.5, w0 = 2.4, m = trial_seq))
 #In this case is 8 times faster!
+
+
