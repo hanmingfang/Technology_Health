@@ -46,8 +46,8 @@ rate_b = 0.25       #Rate for exponential distribution for medical exp. unhealth
 util_min = 0.0001   #Minimum consumption minus labor effort a household can have (can't be 0 or blows up)
 #Check papaers of Erick French and Christina Dinadi (Medicaid)
 #This is not in the same way in the document!
-P_0g =  0.3         #Probability of 0 medical expenditure for healthy worker 
-P_0b =  0.1         #Probability of 0 medical expenditure for unhealthy worker
+P_0g =  0.5         #Probability of 0 medical expenditure for healthy worker 
+P_0b =  0.3         #Probability of 0 medical expenditure for unhealthy worker
 theta_ins_final = 10 #As we can not evaluate f(Inf) I use an upper bound number, but allowing uniroot to extend it in theta_ins
 #Firm
 N = 1               #Range of tasks (upper limit)
@@ -57,14 +57,14 @@ psi = 1             #Price of intermediates
 sigma = 2           #Elasticity of substitution between tasks
 zeta = 2            #Elasticity of substitution between factors (if fixed), just to define zeta_elas
 #Change this to a small positive number
-C_IN = 0.0          #Health Insurance Fixed Cost (we can start with a very low one)
+C_IN = 0.5          #Health Insurance Fixed Cost (we can start with a very low one)
 A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
 lambda_d = 10       #Parameter in sorting function
 alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
 tol = 1e-8          #Tolerance for unitroot, affects computation time
-K = 3               #Capital stock in the economy
+K = 1               #Capital stock in the economy
 # Primitive Functions ---------------------------------------------------------------
 #Distribution objects
 #Distribution for Positive part of Medical expenditure
@@ -355,7 +355,7 @@ q_k = function(R,i,Y){
 #TODO: Check monotonicity of the function
 #Check monotonicity of the threshold itself (on wages)
 #There is a discontinuity too
-#TODO: Adapt the function for Adverse selection too
+#TODO: Adapt the function for Adverse selection too and for cases where wages do not cross
 X_tilde = function(w0,w1,Y){
   LHS = function(i) C_IN/(((B(i)*(sigma-1)/sigma)^(sigma-1))*Y/sigma)
   #Do not call the same function more than one time if is not neccesary
@@ -769,7 +769,7 @@ Y = p[4]
 
 # Multiroot ---------------------------------------------------------------
 #Trying to use Multiroot
-#Works, but finds the corner
+#Doesn't wor always. Gives singular matrix
 model = function(p) c(F1 = k_excess_d_fast_vec(c(exp(p[1]),exp(p[2]),exp(p[3]),exp(p[4]))),
                        F2 = l0_excess_d_fast_vec(c(exp(p[1]),exp(p[2]),exp(p[3]),exp(p[4]))),
                        F3 = l1_excess_d_fast_vec(c(exp(p[1]),exp(p[2]),exp(p[3]),exp(p[4]))),
@@ -820,8 +820,8 @@ ggplot(data.frame(x=c(0,10)), aes(x=x)) +
   stat_function(fun = Vectorize(Adv_sel), geom="line", aes(colour = "Advan Sel")) + xlab("w0") + ylab("")
 #Graphing X_tilde as a function of w0
 #Good! It seems that X_tilde is continuous and monotonic with respect to changes in wages 
-X_tilde_plot = function(w0) X_tilde(w0,1,10)
-ggplot(data.frame(x=c(2.75,4.75)), aes(x=x)) + 
+X_tilde_plot = function(w0) X_tilde(w0,w1,Y)
+ggplot(data.frame(x=c(0,10)), aes(x=x)) + 
   stat_function(fun = Vectorize(X_tilde_plot), geom="line", aes(colour = "X_tilde")) + xlab("w0") + ylab("")
 ###
 #Plot to show that FOSD in Assumption 1 holds for this case
@@ -897,13 +897,5 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +  xlab("x") +  ylab("y") +
   stat_function(fun=l_0d_plot, geom="line",  aes(colour = "l_0d")) + 
   stat_function(fun=l_1d_plot, geom="line",  aes(colour = "l_1d")) +
   stat_function(fun=k_plot, geom="line",  aes(colour = "k"))
-#Plot market clearing for Y
-#Just testing
-Y_seq = seq(from=0, to=20, by=1)
-excess_Y_vec = vector(length=length(Y_seq))
-for(j in Y_seq){
-  excess_Y_vec[j] = fun(j)
-}
-plot(x=Y_seq, y=excess_Y_vec)
   
 
