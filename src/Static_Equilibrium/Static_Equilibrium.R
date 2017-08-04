@@ -102,7 +102,7 @@ gamma_prod = function(i){
 #Sorting of workers 
 #TODO: edit this function
 #Making that integrates to 1
-norm_const_delta_sort = integrate(Vectorize(function(i) exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d))),
+norm_const_delta_sort = integrate(Vectorize(function(i) (exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d)))),
                                   lower = N-1, upper = N)$value 
 delta_sort = function(i){
   aux = (exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d)))/norm_const_delta_sort
@@ -929,9 +929,9 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +
   geom_vline(xintercept = X,linetype=4, colour="black") +
   geom_vline(xintercept = I0,linetype=3, colour="black") +
   geom_vline(xintercept = I1,linetype=2, colour="black") +
-  geom_text(mapping = aes(label = "X", y = 0, x = X+0.02),colour="blue") +
-  geom_text(mapping = aes(label = "I0", y = 0, x = I0-0.02),colour="blue") +
-  geom_text(mapping = aes(label = "I1", y = 0, x = I1+0.02),colour="blue") +
+  geom_text(mapping = aes(label = "X", y = 2, x = X+0.02),colour="blue") +
+  geom_text(mapping = aes(label = "I0", y = 2, x = I0-0.02),colour="blue") +
+  geom_text(mapping = aes(label = "I1", y = 2, x = I1+0.02),colour="blue") +
   ggtitle(paste("(w0,w1,R,Y) = (",round(w0,2),",",round(w1,2),",",round(R,2),",",round(Y,2),")"))
 ggsave(file="conditional_profits_equilibrium.pdf", width=8, height=5)
 ###
