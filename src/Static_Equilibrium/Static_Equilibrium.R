@@ -790,9 +790,223 @@ Pi_1 = function(w0,w1,R,Y,i){
        (w_hat1i+psi*p_1i^zeta_elas(i)))^(sigma-1)-C_IN
   return(aux)
 }
+###Functions with probabilities
+#TODO: Check for extreme cases
+#The optimizer is evaluating in stupid numbers that exp() gives Inf
+ccp = function(w0,w1,R,Y,i){
+  Pi_k_val = Pi_k(w0,w1,R,Y,i)
+  Pi_0_val = Pi_0(w0,w1,R,Y,i)
+  Pi_1_val = Pi_1(w0,w1,R,Y,i)
+  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  ccp_0 = exp(Pi_0_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  ccp_1 = exp(Pi_1_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  aux = c(ccp_k, ccp_0, ccp_1)
+  return(aux)  
+}
+
+#################Excess demands with ccp##################
+k_excess_d_prob = function(p){
+  w0 = p[1]
+  w1 = p[2]
+  R = p[3]
+  Y = p[4]
+  ###
+  R_hati = function(i) R/z_prod(i)
+  p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
+  ###
+  ccp_i = function(i) ccp(w0,w1,R,Y,i)
+  ###
+  yki = function(i) {
+    aux = (Y*((sigma-1)/sigma)^sigma)*
+      ((B(i)*(eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^
+          (zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i) + psi*p_ki(i)^zeta_elas(i)))^sigma
+    return(aux)
+  }
+  integrand_k = function(i) ccp_i(i)[1]*(yki(i)/(B(i)*(eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1))))
+  integral = integrate(Vectorize(integrand_k), lower = N-1, upper = N) #Bounds specified in the document
+  #We need to vectorize the function to use integrate
+  aux = integral$value-K
+  return(aux)
+}
+l0_excess_d_prob = function(p){
+  w0 = p[1]
+  w1 = p[2]
+  R = p[3]
+  Y = p[4]
+  L0_s_g_var = L0_s_memo('g',w0,w1)
+  L0_s_b_var = L0_s_memo('b',w0,w1)
+  L1_s_g_var = L1_s_memo('g',w0,w1)
+  L1_s_b_var = L1_s_memo('b',w0,w1)
+  #Assigning the same beliefs if no labor supply
+  if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
+    Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
+  }
+  else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
+  }
+  else{
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
+  }
+  gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
+  w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
+  p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
+  ###
+  ccp_i = function(i) ccp(w0,w1,R,Y,i)
+  ###
+  y0i = function(i){
+    aux = (Y*((sigma-1)/sigma)^sigma)*
+      ((B(i)*(eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^
+          (zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i(i) + psi*p_0i(i)^zeta_elas(i)))^sigma
+    return(aux)
+  }  
+  #The integrand of l_0i should be l_hat_0i divided by gamma gamma_prod_bar_0i
+  integrand_l0 = function(i) ccp_i(i)[2]*((y0i(i)/(B(i)*(eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1))))/gamma_prod_bar_0i(i))
+  integral = integrate(Vectorize(integrand_l0), lower = N-1, upper = N) #Bounds specified in the document, Vectorizing
+  aux = integral$value - (L0_s_g_var + L0_s_b_var) #subtracting Labor supplied for no insurance
+  return(aux)  
+}
+l1_excess_d_prob = function(p){
+  w0 = p[1]
+  w1 = p[2]
+  R = p[3]
+  Y = p[4]
+  ###
+  L0_s_g_var = L0_s_memo('g',w0,w1)
+  L0_s_b_var = L0_s_memo('b',w0,w1)
+  L1_s_g_var = L1_s_memo('g',w0,w1)
+  L1_s_b_var = L1_s_memo('b',w0,w1)
+  #Assigning the same beliefs if no labor supply
+  if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
+    Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
+  }
+  else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
+  }
+  else{
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
+  }
+  gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
+  E_mg = E_m('g')
+  E_mb = E_m('b')
+  Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
+  w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
+  p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
+  ###
+  ccp_i = function(i) ccp(w0,w1,R,Y,i)
+  ###
+  y1i = function(i){
+    aux = (Y*((sigma-1)/sigma)^sigma)*
+      ((B(i)*(eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^
+          (zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i(i) + psi*p_1i(i)^zeta_elas(i)))^sigma
+    return(aux)
+  }
+  integrand_l1 = function(i) ccp_i(i)[3]*((y1i(i)/(B(i)*(eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1))))/gamma_prod_bar_1i(i))
+  integral = integrate(Vectorize(integrand_l1), lower = N-1, upper = N) #Bounds specified in the document, vectorize
+  aux = integral$value - (L1_s_g_var + L1_s_b_var) #subtracting Labor supplied for insurance
+  return(aux)  
+}
+Y_excess_s_prob = function(p){
+  w0 = p[1]
+  w1 = p[2]
+  R = p[3]
+  Y = p[4]
+  L0_s_g_var = L0_s_memo('g',w0,w1)
+  L0_s_b_var = L0_s_memo('b',w0,w1)
+  L1_s_g_var = L1_s_memo('g',w0,w1)
+  L1_s_b_var = L1_s_memo('b',w0,w1)
+  #Assigning the same beliefs if no labor supply
+  if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
+    Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
+  }
+  else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
+  }
+  else{
+    Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
+    Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
+  }
+  Y_k = function(Y){
+    R_hati = function(i) R/z_prod(i)
+    p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
+    ###
+    ccp_i = function(i) ccp(w0,w1,R,Y,i)
+    ###
+    yki = function(i) {
+      aux = (Y*((sigma-1)/sigma)^sigma)*
+        ((B(i)*(eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^
+            (zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i) + psi*p_ki(i)^zeta_elas(i)))^sigma
+      return(aux)
+    }
+    integrand_yk = function(i) ccp_i(i)[1]*((yki(i))^((sigma-1)/sigma)) #integrand of y_k in the consumption good production
+    integral = integrate(Vectorize(integrand_yk), lower = N-1, upper = N) #Vectorizing
+    aux = integral$value
+    return(aux)
+  }
+  Y_0 = function(Y){
+    gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
+    w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
+    p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
+    ###
+    ccp_i = function(i) ccp(w0,w1,R,Y,i)
+    ###
+    y0i = function(i){
+      aux = (Y*((sigma-1)/sigma)^sigma)*
+        ((B(i)*(eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^
+            (zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i(i) + psi*p_0i(i)^zeta_elas(i)))^sigma
+      return(aux)
+    }  
+    integrand_y0 = function(i) ccp_i(i)[2]*((y0i(i))^((sigma-1)/sigma)) #integrand of y_0 in the consumption good production
+    integral = integrate(Vectorize(integrand_y0), lower = N-1, upper = N)
+    aux = integral$value
+    return(aux)
+  }
+  Y_1 = function(Y){
+    gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
+    E_mg = E_m('g')
+    E_mb = E_m('b')
+    Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
+    w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
+    p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
+    ###
+    ccp_i = function(i) ccp(w0,w1,R,Y,i)
+    ###
+    y1i = function(i){
+      aux = (Y*((sigma-1)/sigma)^sigma)*
+        ((B(i)*(eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^
+            (zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i(i) + psi*p_1i(i)^zeta_elas(i)))^sigma
+      return(aux)
+    }
+    integrand_y1 = function(i) ccp_i(i)[3]*((y1i(i))^((sigma-1)/sigma)) #integrand of y_1 in the consumption good production
+    integral = integrate(Vectorize(integrand_y1), lower = N-1, upper = N) #Vectorizing
+    aux = integral$value
+    return(aux)
+  }
+  aux = Y - (Y_k(Y)+Y_0(Y)+Y_1(Y))^(sigma/(sigma-1))
+  return(aux) 
+}
+obj_fun_prob = function(p){  
+  Y = p[4]
+  aux  = sqrt((k_excess_d_prob(p)/K)^2 + (l0_excess_d_prob(p))^2 +
+                (l1_excess_d_prob(p))^2 + (Y_excess_s_prob(p)/Y)^2)
+  return(aux)#Here I need to normalize in some way the Excess demands
+}
+
+
+
 
 #TODO: Solve the corner cases for the thresholds and excess demands
 #Fix the inconsistency with the beliefs out of path (Assign some beliefs there)
+
+
+
 
 # Optim -------------------------------------------------------------------
 # Start the clock!
@@ -845,7 +1059,7 @@ proc.time() - ptm
 
 #Global optimizer with CRS2 (is the best working now)
 ptm = proc.time()
-crs2_sol = crs2lm(x0=c(2,1,1,10), fn = obj_fun,
+crs2_sol = crs2lm(x0=c(2,1,1,10), fn = obj_fun_prob,
              lower = c(0.001,0.001,0.001,0.001),
              upper = c(50,50,50,500),
              maxeval = 10000,
