@@ -20,6 +20,7 @@ library(nloptr)
 #library(benchmarkme)
 library(distrEx)
 library(memoise)
+library(nleqslv)
 #Change directory
 dir = '~/Dropbox/Technology/Codes/Technology_Health/'
 setwd(dir)
@@ -46,8 +47,8 @@ rate_b = 0.25       #Rate for exponential distribution for medical exp. unhealth
 util_min = 0.0001   #Minimum consumption minus labor effort a household can have (can't be 0 or blows up)
 #Check papaers of Erick French and Christina Dinadi (Medicaid)
 #This is not in the same way in the document!
-P_0g =  0.5         #Probability of 0 medical expenditure for healthy worker 
-P_0b =  0.3         #Probability of 0 medical expenditure for unhealthy worker
+P_0g =  0.7         #Probability of 0 medical expenditure for healthy worker 
+P_0b =  0.5         #Probability of 0 medical expenditure for unhealthy worker
 theta_ins_final = 10 #As we can not evaluate f(Inf) I use an upper bound number, but allowing uniroot to extend it in theta_ins
 #Firm
 N = 1               #Range of tasks (upper limit)
@@ -57,7 +58,7 @@ psi = 1             #Price of intermediates
 sigma = 2           #Elasticity of substitution between tasks
 zeta = 2            #Elasticity of substitution between factors (if fixed), just to define zeta_elas
 #Change this to a small positive number
-C_IN = 0.5          #Health Insurance Fixed Cost (we can start with a very low one)
+C_IN = 0.1          #Health Insurance Fixed Cost (we can start with a very low one)
 A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
 lambda_d = 10       #Parameter in sorting function
@@ -800,16 +801,22 @@ ccp = function(w0,w1,R,Y,i){
   ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
   ccp_0 = exp(Pi_0_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
   ccp_1 = exp(Pi_1_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
-  aux = c(ccp_k, ccp_0, ccp_1)
+  #In case any of the probabilities is NAN, return 1, just to make the optimizer away from this point
+  if(is.na(ccp_k) | is.na(ccp_0) | is.na(ccp_1)){
+    aux = c(0,0,0)
+  }
+  else{
+    aux = c(ccp_k, ccp_0, ccp_1)
+  }
   return(aux)  
 }
 
 #################Excess demands with ccp##################
 k_excess_d_prob = function(p){
-  w0 = p[1]
-  w1 = p[2]
-  R = p[3]
-  Y = p[4]
+  w0 = exp(p[1])
+  w1 = exp(p[2])
+  R = exp(p[3])
+  Y = exp(p[4])
   ###
   R_hati = function(i) R/z_prod(i)
   p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
@@ -829,10 +836,10 @@ k_excess_d_prob = function(p){
   return(aux)
 }
 l0_excess_d_prob = function(p){
-  w0 = p[1]
-  w1 = p[2]
-  R = p[3]
-  Y = p[4]
+  w0 = exp(p[1])
+  w1 = exp(p[2])
+  R = exp(p[3])
+  Y = exp(p[4])
   L0_s_g_var = L0_s_memo('g',w0,w1)
   L0_s_b_var = L0_s_memo('b',w0,w1)
   L1_s_g_var = L1_s_memo('g',w0,w1)
@@ -869,10 +876,10 @@ l0_excess_d_prob = function(p){
   return(aux)  
 }
 l1_excess_d_prob = function(p){
-  w0 = p[1]
-  w1 = p[2]
-  R = p[3]
-  Y = p[4]
+  w0 = exp(p[1])
+  w1 = exp(p[2])
+  R = exp(p[3])
+  Y = exp(p[4])
   ###
   L0_s_g_var = L0_s_memo('g',w0,w1)
   L0_s_b_var = L0_s_memo('b',w0,w1)
@@ -911,11 +918,12 @@ l1_excess_d_prob = function(p){
   aux = integral$value - (L1_s_g_var + L1_s_b_var) #subtracting Labor supplied for insurance
   return(aux)  
 }
+#TODO: check for this where to write the ccp
 Y_excess_s_prob = function(p){
-  w0 = p[1]
-  w1 = p[2]
-  R = p[3]
-  Y = p[4]
+  w0 = exp(p[1])
+  w1 = exp(p[2])
+  R = exp(p[3])
+  Y = exp(p[4])
   L0_s_g_var = L0_s_memo('g',w0,w1)
   L0_s_b_var = L0_s_memo('b',w0,w1)
   L1_s_g_var = L1_s_memo('g',w0,w1)
@@ -989,7 +997,45 @@ Y_excess_s_prob = function(p){
     aux = integral$value
     return(aux)
   }
-  aux = Y - (Y_k(Y)+Y_0(Y)+Y_1(Y))^(sigma/(sigma-1))
+  Y_s = function(Y){
+    R_hati = function(i) R/z_prod(i)
+    p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
+    ###
+    ccp_i = function(i) ccp(w0,w1,R,Y,i)
+    ###
+    yki = function(i) {
+      aux = (Y*((sigma-1)/sigma)^sigma)*
+        ((B(i)*(eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^
+            (zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i) + psi*p_ki(i)^zeta_elas(i)))^sigma
+      return(aux)
+    }
+    gamma_prod_bar_0i = function(i) gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
+    w_hat0i = function(i) w0/gamma_prod_bar_0i(i)
+    p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
+    y0i = function(i){
+      aux = (Y*((sigma-1)/sigma)^sigma)*
+        ((B(i)*(eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^
+            (zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat0i(i) + psi*p_0i(i)^zeta_elas(i)))^sigma
+      return(aux)
+    }
+    gamma_prod_bar_1i = function(i) gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
+    E_mg = E_m('g')
+    E_mb = E_m('b')
+    Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1)
+    w_hat1i = function(i) (w1+Mi(i))/gamma_prod_bar_1i(i)
+    p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
+    y1i = function(i){
+      aux = (Y*((sigma-1)/sigma)^sigma)*
+        ((B(i)*(eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^
+            (zeta_elas(i)/(zeta_elas(i)-1)))/(w_hat1i(i) + psi*p_1i(i)^zeta_elas(i)))^sigma
+      return(aux)
+    }
+    integrand = function(i) (ccp_i(i)[1]*yki(i)+ccp_i(i)[2]*y0i(i)+ccp_i(i)[3]*y1i(i))^((sigma-1)/sigma) #integrand of y_1 in the consumption good production
+    integral = integrate(Vectorize(integrand), lower = N-1, upper = N) #Vectorizing
+    aux = integral$value
+    return(aux)
+  }
+  aux = Y - (Y_s(Y))^(sigma/(sigma-1))
   return(aux) 
 }
 obj_fun_prob = function(p){  
@@ -998,8 +1044,7 @@ obj_fun_prob = function(p){
                 (l1_excess_d_prob(p))^2 + (Y_excess_s_prob(p)/Y)^2)
   return(aux)#Here I need to normalize in some way the Excess demands
 }
-
-
+F_zeros = function(p) c(k_excess_d_prob(p), l0_excess_d_prob(p), l1_excess_d_prob(p), Y_excess_s_prob(p))
 
 
 #TODO: Solve the corner cases for the thresholds and excess demands
@@ -1014,7 +1059,7 @@ ptm = proc.time()
 #Optimize and get the parameters
 #Is stopping  "CONVERGENCE: REL_REDUCTION_OF_F <= FACTR*EPSMCH"
 #This one works if tol= 1e-8 for the unitroot
-optim_object = optim(par=c(2,1,1,30), fn = obj_fun, method = "L-BFGS-B", 
+optim_object = optim(par=c(2,0.1,1,10), fn = obj_fun, method = "L-BFGS-B", 
                   lower = c(0.001,0.001,0.001,0.001),  
                   control = list(trace = 1, pgtol = 1e-12),
                   upper = c(Inf,Inf,Inf,Inf))
@@ -1059,7 +1104,7 @@ proc.time() - ptm
 
 #Global optimizer with CRS2 (is the best working now)
 ptm = proc.time()
-crs2_sol = crs2lm(x0=c(2,1,1,10), fn = obj_fun_prob,
+crs2_sol = crs2lm(x0=c(2,0.1,1,10), fn = obj_fun_prob,
              lower = c(0.001,0.001,0.001,0.001),
              upper = c(50,50,50,500),
              maxeval = 10000,
@@ -1092,6 +1137,19 @@ w0 = p[1]
 w1 = p[2]
 R = p[3]
 Y = p[4]
+
+
+# Non linear solver -------------------------------------------------------
+#TODO: check positivity
+nles_sol = nleqslv(x = c(log(1),log(1),log(1),log(20)), fn = F_zeros, jac=NULL,
+        method = "Broyden",
+        jacobian=FALSE)
+w0 = exp(nles_sol$x[1])
+w1 = exp(nles_sol$x[2])
+R = exp(nles_sol$x[3])
+Y = exp(nles_sol$x[4])
+nles_sol
+c(w0,w1,R,Y)
 
 # Plots -------------------------------------------------------------------
 dir = '~/Dropbox/Technology/Codes/Technology_Health/plots/'
@@ -1228,4 +1286,63 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +  xlab("x") +  ylab("y") +
   stat_function(fun=l_1d_plot, geom="line",  aes(colour = "l_1d")) +
   stat_function(fun=k_plot, geom="line",  aes(colour = "k"))
   
+###Plot ccp
+
+ccp_k_plot = function(i){
+  Pi_k_val = Pi_k(w0,w1,R,Y,i)
+  Pi_0_val = Pi_0(w0,w1,R,Y,i)
+  Pi_1_val = Pi_1(w0,w1,R,Y,i)
+  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  ccp_0 = exp(Pi_0_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  ccp_1 = exp(Pi_1_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  aux = ccp_k
+  return(aux)  
+}
+ccp_0_plot = function(i){
+  Pi_k_val = Pi_k(w0,w1,R,Y,i)
+  Pi_0_val = Pi_0(w0,w1,R,Y,i)
+  Pi_1_val = Pi_1(w0,w1,R,Y,i)
+  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  ccp_0 = exp(Pi_0_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  ccp_1 = exp(Pi_1_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  aux = ccp_0
+  return(aux)  
+}
+ccp_1_plot = function(i){
+  Pi_k_val = Pi_k(w0,w1,R,Y,i)
+  Pi_0_val = Pi_0(w0,w1,R,Y,i)
+  Pi_1_val = Pi_1(w0,w1,R,Y,i)
+  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  ccp_0 = exp(Pi_0_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  ccp_1 = exp(Pi_1_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  aux = ccp_1
+  return(aux)  
+}
+
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + ylab("") + xlab("i") +
+  stat_function(fun=ccp_k_plot, geom="line", aes(colour = "ccp_k")) + 
+  stat_function(fun=ccp_0_plot, geom="line", aes(colour = "ccp_0")) +
+  stat_function(fun=ccp_1_plot, geom="line", aes(colour = "ccp_1"))
+#ggsave(file="endogenous_proportion_healthy.pdf", width=8, height=5)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
