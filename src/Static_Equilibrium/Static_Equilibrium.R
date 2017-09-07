@@ -31,10 +31,11 @@ theta_L = 0         #Domain for theta
 theta_H = Inf
 m_L = 0             #Domain for medical expenditure shocks
 m_F = Inf
-shape_gH = 2         #Shape parameter of theta (Gamma distribution) High skill
-shape_gL = 2         #Shape parameter of theta (Gamma distribution) Low skill
-shape_bH = 0.2       #Shape parameter of theta (Gamma distribution) High skill
-shape_bL = 0.2       #Shape parameter of theta (Gamma distribution) Low skill
+shape_gH = 6         #Shape parameter of theta (Gamma distribution) High skill
+shape_gL = 1         #Shape parameter of theta (Gamma distribution) Low skill
+shape_bH = 3       #Shape parameter of theta (Gamma distribution) High skill
+shape_bL = 0.1       #Shape parameter of theta (Gamma distribution) Low skill
+                     #For a given scale parameter, higher shape parameter means more risk averse households
 scale_gH = 1         #Scale parameter of theta (Gamma distribution) High skill
 scale_gL = 1         #Scale parameter of theta (Gamma distribution) Low skill
 scale_bH = 1         #Scale parameter of theta (Gamma distribution) High skill
@@ -1138,6 +1139,34 @@ obj_fun = function(p){
 
 # Equilibrium solutions -------------------------------------------------------------------
 
+
+#(run)
+#Non linear equation solver (is very fast but a little more sensitive to initial conditions)
+#Using exponentials in the equations to ensure positivity
+nles_sol = nleqslv(x = c(log(3),log(1),log(2),log(0.5),log(1),log(20)), fn = F_zeros, jac=NULL,
+                   method = "Broyden",
+                   jacobian=FALSE)
+nles_sol
+
+w0H = exp(nles_sol$x[1])
+w0L = exp(nles_sol$x[2])
+w1H = exp(nles_sol$x[3])
+w1L = exp(nles_sol$x[4])
+R = exp(nles_sol$x[5])
+Y = exp(nles_sol$x[6])
+c(w0H,w0L,w1H,w1L,R,Y)
+
+#Checking for wieghted wages 
+L1_H = L1_s('g',sH,w0H,w1H)+L1_s('b',sH,w0H,w1H)
+L1_L = L1_s('g',sL,w0L,w1L)+L1_s('b',sL,w0L,w1L)
+w1 = (w1H*L1_H + w1L*L1_L)/(L1_H+L1_L) 
+
+L0_H = L0_s('g',sH,w0H,w1H)+L0_s('b',sH,w0H,w1H)
+L0_L = L0_s('g',sL,w0L,w1L)+L0_s('b',sL,w0L,w1L)
+w0 = (w0H*L0_H + w0L*L0_L)/(L0_H+L0_L) 
+c(w0,w1)
+w0-w1
+################################
 #(do not run)
 #Global optimizer with CRS2 (is slow but quite robust)
 #Take away exponentials in the excess demand functions if you are using this method
@@ -1155,29 +1184,7 @@ w1 = p[2]
 R = p[3]
 Y = p[4]
 
-#(run)
-#Non linear equation solver (is very fast but a little more sensitive to initial conditions)
-#Using exponentials in the equations to ensure positivity
-nles_sol = nleqslv(x = c(log(3),log(1),log(2),log(0.5),log(1),log(20)), fn = F_zeros, jac=NULL,
-        method = "Broyden",
-        jacobian=FALSE)
-nles_sol
-w0H = exp(nles_sol$x[1])
-w0L = exp(nles_sol$x[2])
-w1H = exp(nles_sol$x[3])
-w1L = exp(nles_sol$x[4])
-R = exp(nles_sol$x[5])
-Y = exp(nles_sol$x[6])
-c(w0H,w0L,w1H,w1L,R,Y)
 
-#Checking for wieghted wages 
-L1_H = L1_s('g',sH,w0H,w1H)+L1_s('b',sH,w0H,w1H)
-L1_L = L1_s('g',sL,w0L,w1L)+L1_s('b',sL,w0L,w1L)
-w1 = (w1H*L1_H + w1L*L1_L)/(L1_H+L1_L) 
-
-L0_H = L0_s('g',sH,w0H,w1H)+L0_s('b',sH,w0H,w1H)
-L0_L = L0_s('g',sL,w0L,w1L)+L0_s('b',sL,w0L,w1L)
-w0 = (w0H*L0_H + w0L*L0_L)/(L0_H+L0_L) 
 
 
 # Plots -------------------------------------------------------------------
@@ -1186,10 +1193,6 @@ w0 = (w0H*L0_H + w0L*L0_L)/(L0_H+L0_L)
 dir = '~/Dropbox/Technology/Codes/Technology_Health/plots/'
 setwd(dir)
 
-#Check for Proportions of Helathy workers
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=Chi_0gi, geom="line", aes(colour = "Chi_0g")) + xlab("i") + 
-  ylab("") + stat_function(fun=Chi_1gi, geom="line",aes(colour = "Chi_1g"))
 #Check crossing of effective wages 
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=w_hat0i, geom="line", aes(colour = "what0")) + xlab("i") + 
@@ -1236,9 +1239,11 @@ ggplot(data.frame(x=c(0, 4)), aes(x=x)) +
   ylab("y") + stat_function(fun=H_b, geom="line",aes(colour = "H_b"))
 ggsave(file="H_FOSD.pdf", width=8, height=5)
 #Plot to show that FOSD in Assumption 2 holds for this case
-ggplot(data.frame(x=c(0, 4)), aes(x=x)) + 
-  stat_function(fun=F_g, geom="line", aes(colour = "F_g")) + xlab("x") + 
-  ylab("y") + stat_function(fun=F_b, geom="line",aes(colour = "F_b"))
+ggplot(data.frame(x=c(0, 4)), aes(x=x)) + xlab("x") +  ylab("y") +
+  stat_function(fun=F_gH, geom="line", aes(colour = "F_gH")) +  
+  stat_function(fun=F_gL, geom="line", aes(colour = "F_gL")) + 
+  stat_function(fun=F_bH, geom="line",aes(colour = "F_bH")) +
+  stat_function(fun=F_bL, geom="line",aes(colour = "F_bL"))
 ggsave(file="F_FOSD.pdf", width=8, height=5)
 #Plot gamma_prod
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
@@ -1252,12 +1257,17 @@ ggsave(file="delta_sort.pdf", width=8, height=5)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun=C_A , geom="line") + xlab("i") + ylab("")
 ggsave(file="automation_cost.pdf", width=8, height=5)
-#Plot Chi_0g and Chi_1g (change wages to get advantageous selection) 
-Chi_0g_plot = function(i) Chi_0g(w0=w0, w1=w1,i)
-Chi_1g_plot = function(i) Chi_1g(w0=w0, w1=w1,i)
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=Chi_0g_plot, geom="line", aes(colour = "Chi_0g")) + xlab("i") + 
-  ylab("") + stat_function(fun=Chi_1g_plot, geom="line",aes(colour = "Chi_1g"))
+###New!
+#Plot Chi_0g and Chi_1g  
+Chi_0gH_plot = function(i) Chi_0g(sH, w0=w0H, w1=w1H,i)
+Chi_0gL_plot = function(i) Chi_0g(sL, w0=w0L, w1=w1L,i)
+Chi_1gH_plot = function(i) Chi_1g(sH, w0=w0H, w1=w1H,i)
+Chi_1gL_plot = function(i) Chi_1g(sL, w0=w0L, w1=w1L,i)
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + xlab("i") + ylab("") +
+  stat_function(fun=Chi_0gH_plot, geom="line", aes(colour = "Chi_0gH")) + 
+  stat_function(fun=Chi_0gL_plot, geom="line", aes(colour = "Chi_0gL")) + 
+  stat_function(fun=Chi_1gH_plot, geom="line",aes(colour = "Chi_1gH")) +
+  stat_function(fun=Chi_1gL_plot, geom="line",aes(colour = "Chi_1gL"))
 ggsave(file="endogenous_proportion_healthy.pdf", width=8, height=5)
 #PlotEvolution of Expected medical expenditure across i under Advantageous selection
 M_plot = function(i) M(w0=w0, w1=w1,i)
@@ -1304,41 +1314,85 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +  xlab("x") +  ylab("y") +
   
 #Plot ccp
 ccp_k_plot = function(i){
-  Pi_k_val = Pi_k(w0,w1,R,Y,i)
-  Pi_0_val = Pi_0(w0,w1,R,Y,i)
-  Pi_1_val = Pi_1(w0,w1,R,Y,i)
-  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
-  ccp_0 = exp(Pi_0_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
-  ccp_1 = exp(Pi_1_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
+  Pi_k_val = Pi_k(R,Y,i)
+  Pi_0H_val = Pi_0(sH,w0H,w1H,R,Y,i)
+  Pi_0L_val = Pi_0(sL,w0L,w1L,R,Y,i)
+  Pi_1H_val = Pi_1(sH,w0H,w1H,R,Y,i)
+  Pi_1L_val = Pi_1(sL,w0L,w1L,R,Y,i)
+  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_0H = exp(Pi_0H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_0L = exp(Pi_0L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_1H = exp(Pi_1H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_1L = exp(Pi_1L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
   aux = ccp_k
   return(aux)  
 }
-ccp_0_plot = function(i){
-  Pi_k_val = Pi_k(w0,w1,R,Y,i)
-  Pi_0_val = Pi_0(w0,w1,R,Y,i)
-  Pi_1_val = Pi_1(w0,w1,R,Y,i)
-  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
-  ccp_0 = exp(Pi_0_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
-  ccp_1 = exp(Pi_1_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
-  aux = ccp_0
+ccp_0H_plot = function(i){
+  Pi_k_val = Pi_k(R,Y,i)
+  Pi_0H_val = Pi_0(sH,w0H,w1H,R,Y,i)
+  Pi_0L_val = Pi_0(sL,w0L,w1L,R,Y,i)
+  Pi_1H_val = Pi_1(sH,w0H,w1H,R,Y,i)
+  Pi_1L_val = Pi_1(sL,w0L,w1L,R,Y,i)
+  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_0H = exp(Pi_0H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_0L = exp(Pi_0L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_1H = exp(Pi_1H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_1L = exp(Pi_1L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  aux = ccp_0H
   return(aux)  
 }
-ccp_1_plot = function(i){
-  Pi_k_val = Pi_k(w0,w1,R,Y,i)
-  Pi_0_val = Pi_0(w0,w1,R,Y,i)
-  Pi_1_val = Pi_1(w0,w1,R,Y,i)
-  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
-  ccp_0 = exp(Pi_0_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
-  ccp_1 = exp(Pi_1_val)/(exp(Pi_k_val)+exp(Pi_0_val)+exp(Pi_1_val))
-  aux = ccp_1
+ccp_0L_plot = function(i){
+  Pi_k_val = Pi_k(R,Y,i)
+  Pi_0H_val = Pi_0(sH,w0H,w1H,R,Y,i)
+  Pi_0L_val = Pi_0(sL,w0L,w1L,R,Y,i)
+  Pi_1H_val = Pi_1(sH,w0H,w1H,R,Y,i)
+  Pi_1L_val = Pi_1(sL,w0L,w1L,R,Y,i)
+  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_0H = exp(Pi_0H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_0L = exp(Pi_0L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_1H = exp(Pi_1H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_1L = exp(Pi_1L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  aux = ccp_0L
+  return(aux)  
+}
+ccp_1H_plot = function(i){
+  Pi_k_val = Pi_k(R,Y,i)
+  Pi_0H_val = Pi_0(sH,w0H,w1H,R,Y,i)
+  Pi_0L_val = Pi_0(sL,w0L,w1L,R,Y,i)
+  Pi_1H_val = Pi_1(sH,w0H,w1H,R,Y,i)
+  Pi_1L_val = Pi_1(sL,w0L,w1L,R,Y,i)
+  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_0H = exp(Pi_0H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_0L = exp(Pi_0L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_1H = exp(Pi_1H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_1L = exp(Pi_1L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  aux = ccp_1H
+  return(aux)  
+}
+ccp_1L_plot = function(i){
+  Pi_k_val = Pi_k(R,Y,i)
+  Pi_0H_val = Pi_0(sH,w0H,w1H,R,Y,i)
+  Pi_0L_val = Pi_0(sL,w0L,w1L,R,Y,i)
+  Pi_1H_val = Pi_1(sH,w0H,w1H,R,Y,i)
+  Pi_1L_val = Pi_1(sL,w0L,w1L,R,Y,i)
+  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_0H = exp(Pi_0H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_0L = exp(Pi_0L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_1H = exp(Pi_1H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  ccp_1L = exp(Pi_1L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  aux = ccp_1L
   return(aux)  
 }
 
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + ylab("") + xlab("i") +
   stat_function(fun=ccp_k_plot, geom="line", aes(colour = "ccp_k")) + 
-  stat_function(fun=ccp_0_plot, geom="line", aes(colour = "ccp_0")) +
-  stat_function(fun=ccp_1_plot, geom="line", aes(colour = "ccp_1")) +
-  ggtitle(paste("(w0,w1,R,Y) = (",round(w0,2),",",round(w1,2),",",round(R,2),",",round(Y,2),")"))
+  stat_function(fun=ccp_0H_plot, geom="line", aes(colour = "ccp_0H")) +
+  stat_function(fun=ccp_0L_plot, geom="line", aes(colour = "ccp_0L")) +
+  stat_function(fun=ccp_1H_plot, geom="line", aes(colour = "ccp_1H")) +
+  stat_function(fun=ccp_1L_plot, geom="line", aes(colour = "ccp_1L")) +
+  ggtitle(paste("(w0H,w0L,w1H,w1L,R,Y) = (",round(w0H,2),",",round(w0L,2),",",
+                round(w1H,2),",",round(w1L,2),",",round(R,2),",",
+                round(Y,2),") \n","(w0,w1) = ","(",round(w0,2),",",round(w1,1),")"))
 ggsave(file="ccp.pdf", width=8, height=5)
 
 
