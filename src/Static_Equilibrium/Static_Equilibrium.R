@@ -788,9 +788,11 @@ obj_fun_prob = function(p){
 }
 #Previous equations stacked to use Non linear equation solver
 #TODO: Normalize each excess demand function by total output in order to have a meaning
-F_zeros = function(p) c(k_excess_d_prob(p), l0H_excess_d_prob(p), l0L_excess_d_prob(p), 
+F_zeros = function(p){
+  aux = c(k_excess_d_prob(p), l0H_excess_d_prob(p), l0L_excess_d_prob(p), 
                         l1H_excess_d_prob(p), l1L_excess_d_prob(p), Y_excess_s_prob(p))
-
+  return(aux)
+}
 # Deterministic version (do not run) ---------------------------------------------------
 
 #Indifference threshold between insurance and not insurance
@@ -1154,8 +1156,8 @@ w1H = exp(nles_sol$x[3])
 w1L = exp(nles_sol$x[4])
 R = exp(nles_sol$x[5])
 Y = exp(nles_sol$x[6])
-c(w0H,w0L,w1H,w1L,R,Y)
-
+val = c(w0H,w0L,w1H,w1L,R,Y)
+val
 #Checking for wieghted wages 
 L1_H = L1_s('g',sH,w0H,w1H)+L1_s('b',sH,w0H,w1H)
 L1_L = L1_s('g',sL,w0L,w1L)+L1_s('b',sL,w0L,w1L)
@@ -1166,6 +1168,33 @@ L0_L = L0_s('g',sL,w0L,w1L)+L0_s('b',sL,w0L,w1L)
 w0 = (w0H*L0_H + w0L*L0_L)/(L0_H+L0_L) 
 c(w0,w1)
 w0-w1
+
+
+# Multiple Equilibria -----------------------------------------------------
+
+
+N_sims = 100
+set.seed(123)
+
+F_zero_mat = function(x){
+  aux = matrix(nrow = N_sims, ncol = 6)
+  for(i in 1:N_sims){
+    aux[i,] = F_zeros(x[i,])
+  }
+  return(aux)
+}
+
+x_initial = matrix(runif(6*N_sims,min=0.1,max=20), N_sims, 6) # N initial guesses, each of length 6
+ans = searchZeros(log(x_initial),F_zeros, method="Broyden",global="dbldog")
+ans$x
+
+
+
+
+
+
+
+
 ################################
 #(do not run)
 #Global optimizer with CRS2 (is slow but quite robust)
@@ -1311,7 +1340,7 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +  xlab("x") +  ylab("y") +
   stat_function(fun=l_0d_plot, geom="line",  aes(colour = "l_0d")) + 
   stat_function(fun=l_1d_plot, geom="line",  aes(colour = "l_1d")) +
   stat_function(fun=k_plot, geom="line",  aes(colour = "k"))
-  
+###Plots Probability model   
 #Plot ccp
 ccp_k_plot = function(i){
   Pi_k_val = Pi_k(R,Y,i)
@@ -1394,7 +1423,23 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + ylab("") + xlab("i") +
                 round(w1H,2),",",round(w1L,2),",",round(R,2),",",
                 round(Y,2),") \n","(w0,w1) = ","(",round(w0,2),",",round(w1,1),")"))
 ggsave(file="ccp.pdf", width=8, height=5)
+#Graphing equilibrium conditional profits (deterministic part)
+Pi_k_plot = function(i) Pi_k(R,Y,i)
+Pi_0L_plot = function(i) Pi_0(sL,w0L,w1L,R,Y,i)
+Pi_0H_plot = function(i) Pi_0(sH,w0H,w1H,R,Y,i)
+Pi_1L_plot = function(i) Pi_1(sL,w0L,w1L,R,Y,i)
+Pi_1H_plot = function(i) Pi_1(sH,w0H,w1H,R,Y,i)
 
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
+  stat_function(fun = Vectorize(Pi_k_plot), geom="line", aes(colour = "Pi_k")) + xlab("i") + ylab("") +
+  stat_function(fun = Vectorize(Pi_0H_plot), geom="line", aes(colour = "Pi_0H")) +
+  stat_function(fun = Vectorize(Pi_1H_plot), geom="line", aes(colour = "Pi_1H")) +
+  stat_function(fun = Vectorize(Pi_0L_plot), geom="line", aes(colour = "Pi_0L")) +
+  stat_function(fun = Vectorize(Pi_1L_plot), geom="line", aes(colour = "Pi_1L")) +
+  ggtitle(paste("(w0H,w0L,w1H,w1L,R,Y) = (",round(w0H,2),",",round(w0L,2),",",
+                round(w1H,2),",",round(w1L,2),",",round(R,2),",",
+                round(Y,2),") \n","(w0,w1) = ","(",round(w0,2),",",round(w1,1),")"))
+ggsave(file="conditional_profits_prob_equilibrium.pdf", width=8, height=5)
 
 
 
