@@ -15,8 +15,9 @@ library(distrEx)
 library(memoise)
 library(nleqslv)
 
-#Set directory
-dir = '~/Dropbox/Technology/Codes/Technology_Health/'
+#Set my directory
+
+dir = '~/Technology_Health/'
 setwd(dir)
 
 # Parameters --------------------------------------------------------------
@@ -60,6 +61,7 @@ delta_H = 0.5       #Parameter in labor productivity of High skill type
 lambda_d = 10       #Parameter in sorting function
 alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
+s_ccp = 1           #Parameter to scale ccps 
 tol = 1e-8          #Tolerance for unitroot, affects computation time
 K = 1               #Capital stock in the economy
 # Primitive Functions ---------------------------------------------------------------
@@ -109,6 +111,7 @@ gamma_prod = function(s,i){
 #Primitive function
 sorting_f = function(i){
   #aux = 1
+  #aux = i
   aux = exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d))
   return(aux)
 }
@@ -437,27 +440,29 @@ Pi_1 = function(s,w0,w1,R,Y,i){
   return(aux)
 }
 ###Functions with probabilities
-#TODO: Check for extreme cases
 ccp = function(w0H,w0L,w1H,w1L,R,Y,i){
+  #Remember that if we want to vectorize this fn we need to change max by pmax
   Pi_k_val = Pi_k(R,Y,i)
   Pi_0H_val = Pi_0(sH,w0H,w1H,R,Y,i)
   Pi_0L_val = Pi_0(sL,w0L,w1L,R,Y,i)
   Pi_1H_val = Pi_1(sH,w0H,w1H,R,Y,i)
   Pi_1L_val = Pi_1(sL,w0L,w1L,R,Y,i)
-  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_0H = exp(Pi_0H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_0L = exp(Pi_0L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_1H = exp(Pi_1H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_1L = exp(Pi_1L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  #In case any of the probabilities is NAN, return 1, just to make the optimizer away from this point
-  if(is.na(ccp_k) | is.na(ccp_0H) | is.na(ccp_0L) | is.na(ccp_1H) | is.na(ccp_1L)){
-    aux = c(0,0,0,0,0)
-  }
-  else{
-    aux = c(ccp_k, ccp_0H, ccp_0L, ccp_1H, ccp_1L)
-  }#Notice the order! the same as in the document.
+  Pi_max = max(Pi_k_val,Pi_0H_val,Pi_0L_val,Pi_1H_val,Pi_1L_val)
+  Pi_k_val_norm = (Pi_k_val-Pi_max)/s_ccp
+  Pi_0H_val_norm = (Pi_0H_val-Pi_max)/s_ccp
+  Pi_0L_val_norm = (Pi_0L_val-Pi_max)/s_ccp
+  Pi_1H_val_norm = (Pi_1H_val-Pi_max)/s_ccp
+  Pi_1L_val_norm = (Pi_1L_val-Pi_max)/s_ccp
+  ccp_k = exp(Pi_k_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_0H = exp(Pi_0H_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_0L = exp(Pi_0L_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_1H = exp(Pi_1H_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_1L = exp(Pi_1L_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  aux = c(ccp_k, ccp_0H, ccp_0L, ccp_1H, ccp_1L)
   return(aux)  
 }
+#Memosie version
+ccp_memo = memoise(ccp)
 
 # Excess demands with ccp -------------------------------------------------
 #Using exponentials to ensure positivity of prices
@@ -473,7 +478,7 @@ k_excess_d_prob = function(p){
   R_hati = function(i) R/z_prod(i)
   p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
   ###
-  ccp_i = function(i) ccp(w0H,w0L,w1H,w1L,R,Y,i)
+  ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
   ###
   yki = function(i) {
     aux = (Y*((sigma-1)/sigma)^sigma)*
@@ -516,7 +521,7 @@ l0H_excess_d_prob = function(p){
   w_hat0i = function(i) w0H/gamma_prod_bar_0i(i)
   p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
   ###
-  ccp_i = function(i) ccp(w0H,w0L,w1H,w1L,R,Y,i)
+  ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
   ###
   y0i = function(i){
     aux = (Y*((sigma-1)/sigma)^sigma)*
@@ -559,7 +564,7 @@ l0L_excess_d_prob = function(p){
   w_hat0i = function(i) w0L/gamma_prod_bar_0i(i)
   p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
   ###
-  ccp_i = function(i) ccp(w0H,w0L,w1H,w1L,R,Y,i)
+  ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
   ###
   y0i = function(i){
     aux = (Y*((sigma-1)/sigma)^sigma)*
@@ -605,7 +610,7 @@ l1H_excess_d_prob = function(p){
   w_hat1i = function(i) (w1H+Mi(i))/gamma_prod_bar_1i(i)
   p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
   ###
-  ccp_i = function(i) ccp(w0H,w0L,w1H,w1L,R,Y,i)
+  ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
   ###
   y1i = function(i){
     aux = (Y*((sigma-1)/sigma)^sigma)*
@@ -650,7 +655,7 @@ l1L_excess_d_prob = function(p){
   w_hat1i = function(i) (w1L+Mi(i))/gamma_prod_bar_1i(i)
   p_1i = function(i) (eta*w_hat1i(i))/((1-eta)*psi)
   ###
-  ccp_i = function(i) ccp(w0H,w0L,w1H,w1L,R,Y,i)
+  ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
   ###
   y1i = function(i){
     aux = (Y*((sigma-1)/sigma)^sigma)*
@@ -717,7 +722,7 @@ Y_excess_s_prob = function(p){
     R_hati = function(i) R/z_prod(i)
     p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
     ###
-    ccp_i = function(i) ccp(w0H,w0L,w1H,w1L,R,Y,i)
+    ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
     ###
     yki = function(i) {
       aux = (Y*((sigma-1)/sigma)^sigma)*
@@ -1155,7 +1160,9 @@ obj_fun = function(p){
 #Change method to "Newton" if "Broyden" doesn't converge.
 #If the algorithm doesn't find a better point, try decreasing C_IN
 
-nles_sol = nleqslv(x = c(log(3),log(1),log(2),log(0.5),log(1),log(20)), fn = F_zeros, jac=NULL, method = "Broyden", jacobian=FALSE)
+nles_sol = nleqslv(x = c(log(3),log(1),log(2),log(0.5),log(1),log(20)), 
+                   fn = F_zeros, jac=NULL, method = "Newton", jacobian=FALSE,
+                   control = list("allowSingular"=TRUE))
 nles_sol
 
 w0H = exp(nles_sol$x[1])
@@ -1179,7 +1186,7 @@ w0-w1
 
 # Multiple Equilibria -----------------------------------------------------
 
-N_sims = 10
+N_sims = 20
 set.seed(123)
 
 F_zero_mat = function(x){
@@ -1190,7 +1197,7 @@ F_zero_mat = function(x){
   return(aux)
 }
 
-x_initial = matrix(runif(6*N_sims,min=0.1,max=20), N_sims, 6) # N initial guesses, each of length 6
+x_initial = matrix(runif(6*N_sims,min=0.1,max=5), N_sims, 6) # N initial guesses, each of length 6
 ans = searchZeros(log(x_initial),F_zeros, method="Broyden",global="dbldog")
 ans$x
 
@@ -1225,7 +1232,7 @@ Y = p[4]
 # Plots -------------------------------------------------------------------
 #Some plots to check some results
 #Most of the plots are just for the deterministic version of the model
-dir = '~/Dropbox/Technology/Codes/Technology_Health/plots/'
+dir = '~/Technology_Health/plots/'
 setwd(dir)
 
 #Check crossing of effective wages 
@@ -1337,7 +1344,6 @@ w_hat0L_plot = function(i) w_hat0(sL, w0L, w1L,i)
 w_hat1H_plot = function(i) w_hat1(sH, w0H, w1H,i)
 w_hat1L_plot = function(i) w_hat1(sL, w0L, w1L,i)
 R_hat_plot = function(i) R_hat(R,i)
-
 ggplot(data.frame(x=c(N-1,2)), aes(x=x)) + xlab("i") +  ylab("") + 
   stat_function(fun=w_hat0H_plot, geom="line", aes(colour = "w_hat0H")) + 
   stat_function(fun=w_hat1H_plot, geom="line", aes(colour = "w_hat1H")) +
@@ -1361,11 +1367,17 @@ ccp_k_plot = function(i){
   Pi_0L_val = Pi_0(sL,w0L,w1L,R,Y,i)
   Pi_1H_val = Pi_1(sH,w0H,w1H,R,Y,i)
   Pi_1L_val = Pi_1(sL,w0L,w1L,R,Y,i)
-  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_0H = exp(Pi_0H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_0L = exp(Pi_0L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_1H = exp(Pi_1H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_1L = exp(Pi_1L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  Pi_max = max(Pi_k_val,Pi_0H_val,Pi_0L_val,Pi_1H_val,Pi_1L_val)
+  Pi_k_val_norm = (Pi_k_val-Pi_max)/s_ccp
+  Pi_0H_val_norm = (Pi_0H_val-Pi_max)/s_ccp
+  Pi_0L_val_norm = (Pi_0L_val-Pi_max)/s_ccp
+  Pi_1H_val_norm = (Pi_1H_val-Pi_max)/s_ccp
+  Pi_1L_val_norm = (Pi_1L_val-Pi_max)/s_ccp
+  ccp_k = exp(Pi_k_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_0H = exp(Pi_0H_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_0L = exp(Pi_0L_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_1H = exp(Pi_1H_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_1L = exp(Pi_1L_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
   aux = ccp_k
   return(aux)  
 }
@@ -1375,11 +1387,17 @@ ccp_0H_plot = function(i){
   Pi_0L_val = Pi_0(sL,w0L,w1L,R,Y,i)
   Pi_1H_val = Pi_1(sH,w0H,w1H,R,Y,i)
   Pi_1L_val = Pi_1(sL,w0L,w1L,R,Y,i)
-  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_0H = exp(Pi_0H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_0L = exp(Pi_0L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_1H = exp(Pi_1H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_1L = exp(Pi_1L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  Pi_max = max(Pi_k_val,Pi_0H_val,Pi_0L_val,Pi_1H_val,Pi_1L_val)
+  Pi_k_val_norm = (Pi_k_val-Pi_max)/s_ccp
+  Pi_0H_val_norm = (Pi_0H_val-Pi_max)/s_ccp
+  Pi_0L_val_norm = (Pi_0L_val-Pi_max)/s_ccp
+  Pi_1H_val_norm = (Pi_1H_val-Pi_max)/s_ccp
+  Pi_1L_val_norm = (Pi_1L_val-Pi_max)/s_ccp
+  ccp_k = exp(Pi_k_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_0H = exp(Pi_0H_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_0L = exp(Pi_0L_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_1H = exp(Pi_1H_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_1L = exp(Pi_1L_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
   aux = ccp_0H
   return(aux)  
 }
@@ -1389,11 +1407,17 @@ ccp_0L_plot = function(i){
   Pi_0L_val = Pi_0(sL,w0L,w1L,R,Y,i)
   Pi_1H_val = Pi_1(sH,w0H,w1H,R,Y,i)
   Pi_1L_val = Pi_1(sL,w0L,w1L,R,Y,i)
-  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_0H = exp(Pi_0H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_0L = exp(Pi_0L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_1H = exp(Pi_1H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_1L = exp(Pi_1L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  Pi_max = max(Pi_k_val,Pi_0H_val,Pi_0L_val,Pi_1H_val,Pi_1L_val)
+  Pi_k_val_norm = (Pi_k_val-Pi_max)/s_ccp
+  Pi_0H_val_norm = (Pi_0H_val-Pi_max)/s_ccp
+  Pi_0L_val_norm = (Pi_0L_val-Pi_max)/s_ccp
+  Pi_1H_val_norm = (Pi_1H_val-Pi_max)/s_ccp
+  Pi_1L_val_norm = (Pi_1L_val-Pi_max)/s_ccp
+  ccp_k = exp(Pi_k_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_0H = exp(Pi_0H_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_0L = exp(Pi_0L_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_1H = exp(Pi_1H_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_1L = exp(Pi_1L_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
   aux = ccp_0L
   return(aux)  
 }
@@ -1403,11 +1427,17 @@ ccp_1H_plot = function(i){
   Pi_0L_val = Pi_0(sL,w0L,w1L,R,Y,i)
   Pi_1H_val = Pi_1(sH,w0H,w1H,R,Y,i)
   Pi_1L_val = Pi_1(sL,w0L,w1L,R,Y,i)
-  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_0H = exp(Pi_0H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_0L = exp(Pi_0L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_1H = exp(Pi_1H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_1L = exp(Pi_1L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  Pi_max = max(Pi_k_val,Pi_0H_val,Pi_0L_val,Pi_1H_val,Pi_1L_val)
+  Pi_k_val_norm = (Pi_k_val-Pi_max)/s_ccp
+  Pi_0H_val_norm = (Pi_0H_val-Pi_max)/s_ccp
+  Pi_0L_val_norm = (Pi_0L_val-Pi_max)/s_ccp
+  Pi_1H_val_norm = (Pi_1H_val-Pi_max)/s_ccp
+  Pi_1L_val_norm = (Pi_1L_val-Pi_max)/s_ccp
+  ccp_k = exp(Pi_k_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_0H = exp(Pi_0H_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_0L = exp(Pi_0L_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_1H = exp(Pi_1H_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_1L = exp(Pi_1L_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
   aux = ccp_1H
   return(aux)  
 }
@@ -1417,15 +1447,20 @@ ccp_1L_plot = function(i){
   Pi_0L_val = Pi_0(sL,w0L,w1L,R,Y,i)
   Pi_1H_val = Pi_1(sH,w0H,w1H,R,Y,i)
   Pi_1L_val = Pi_1(sL,w0L,w1L,R,Y,i)
-  ccp_k = exp(Pi_k_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_0H = exp(Pi_0H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_0L = exp(Pi_0L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_1H = exp(Pi_1H_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
-  ccp_1L = exp(Pi_1L_val)/(exp(Pi_k_val)+exp(Pi_0H_val)+exp(Pi_0L_val)+exp(Pi_1H_val)+exp(Pi_1L_val))
+  Pi_max = max(Pi_k_val,Pi_0H_val,Pi_0L_val,Pi_1H_val,Pi_1L_val)
+  Pi_k_val_norm = (Pi_k_val-Pi_max)/s_ccp
+  Pi_0H_val_norm = (Pi_0H_val-Pi_max)/s_ccp
+  Pi_0L_val_norm = (Pi_0L_val-Pi_max)/s_ccp
+  Pi_1H_val_norm = (Pi_1H_val-Pi_max)/s_ccp
+  Pi_1L_val_norm = (Pi_1L_val-Pi_max)/s_ccp
+  ccp_k = exp(Pi_k_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_0H = exp(Pi_0H_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_0L = exp(Pi_0L_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_1H = exp(Pi_1H_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
+  ccp_1L = exp(Pi_1L_val_norm)/(exp(Pi_k_val_norm)+exp(Pi_0H_val_norm)+exp(Pi_0L_val_norm)+exp(Pi_1H_val_norm)+exp(Pi_1L_val_norm))
   aux = ccp_1L
   return(aux)  
 }
-
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + ylab("") + xlab("i") +
   stat_function(fun=ccp_k_plot, geom="line", aes(colour = "ccp_k")) + 
   stat_function(fun=ccp_0H_plot, geom="line", aes(colour = "ccp_0H")) +
@@ -1442,7 +1477,6 @@ Pi_0L_plot = function(i) Pi_0(sL,w0L,w1L,R,Y,i)
 Pi_0H_plot = function(i) Pi_0(sH,w0H,w1H,R,Y,i)
 Pi_1L_plot = function(i) Pi_1(sL,w0L,w1L,R,Y,i)
 Pi_1H_plot = function(i) Pi_1(sH,w0H,w1H,R,Y,i)
-
 ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
   stat_function(fun = Vectorize(Pi_k_plot), geom="line", aes(colour = "Pi_k")) + xlab("i") + ylab("") +
   stat_function(fun = Vectorize(Pi_0H_plot), geom="line", aes(colour = "Pi_0H")) +
