@@ -21,7 +21,7 @@ setwd(dir)
 
 # Parameters --------------------------------------------------------------
 #Household 
-sH = 3              #Skill High type 
+sH = 4              #Skill High type 
 sL = 1              #Skill Low type
 lambda_gH = 0.25    #Measure healthy workers High skill
 lambda_gL = 0.25    #Measure healthy workers Low skill
@@ -31,19 +31,19 @@ theta_L = 0         #Domain for theta
 theta_H = Inf
 m_L = 0             #Domain for medical expenditure shocks
 m_F = Inf
-shape_gH = 6         #Shape parameter of theta (Gamma distribution) High skill
+shape_gH = 3         #Shape parameter of theta (Gamma distribution) High skill
 shape_gL = 1         #Shape parameter of theta (Gamma distribution) Low skill
-shape_bH = 3       #Shape parameter of theta (Gamma distribution) High skill
+shape_bH = 0.3       #Shape parameter of theta (Gamma distribution) High skill
 shape_bL = 0.1       #Shape parameter of theta (Gamma distribution) Low skill
                      #For a given scale parameter, higher shape parameter means more risk averse households
 scale_gH = 1         #Scale parameter of theta (Gamma distribution) High skill
 scale_gL = 1         #Scale parameter of theta (Gamma distribution) Low skill
 scale_bH = 1         #Scale parameter of theta (Gamma distribution) High skill
 scale_bL = 1         #Scale parameter of theta (Gamma distribution) Low skill
-rate_g = 1          #Rate for exponential distribution for medical exp. healthy workers  (Mean=1/rate)
-rate_b = 0.25       #Rate for exponential distribution for medical exp. unhealthy workers
-P_0g =  0.7         #Probability of 0 medical expenditure for healthy worker 
-P_0b =  0.5         #Probability of 0 medical expenditure for unhealthy worker
+rate_g = 1           #Rate for exponential distribution for medical exp. healthy workers  (Mean=1/rate)
+rate_b = 0.25        #Rate for exponential distribution for medical exp. unhealthy workers
+P_0g =  0.7          #Probability of 0 medical expenditure for healthy worker 
+P_0b =  0.5          #Probability of 0 medical expenditure for unhealthy worker
 theta_ins_final = 10 #As we can not evaluate f(Inf) I use an upper bound number, but allowing uniroot to extend it in theta_ins
 #Firm
 N = 1               #Range of tasks (upper limit)
@@ -53,9 +53,10 @@ psi = 1             #Price of intermediates
 sigma = 2           #Elasticity of substitution between tasks
 zeta = 2            #Elasticity of substitution between factors (if fixed), just to define zeta_elas
 #Change this to a small positive number if equilibrium is not found
-C_IN = 0.1          #Health Insurance Fixed Cost (we can start with a very low one)
+C_IN = 0.01          #Health Insurance Fixed Cost (we can start with a very low one)
 A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
+delta_H = 0.5       #Parameter in labor productivity of High skill type
 lambda_d = 10       #Parameter in sorting function
 alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
@@ -98,18 +99,24 @@ H_b  = function(m){
   return(aux)
 }
 #Parametrized functions
-#Labor productivity 
-gamma_prod = function(i){   
-  aux = A_0*exp(A*i)
+#Labor productivity (per skill unit)
+gamma_prod = function(s,i){   
+  if(s == sL){aux = A_0*exp(A*i)}
+  else{aux = A_0*exp(A*i)*exp(delta_H*i)}
   return(aux)
-}   
+}
 #Sorting of workers
+#Primitive function
+sorting_f = function(i){
+  #aux = 1
+  aux = exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d))
+  return(aux)
+}
 #Normalizing constant
-norm_const_delta_sort = integrate(Vectorize(function(i) (exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d)))),
-                                  lower = N-1, upper = N)$value 
+norm_const_delta_sort = integrate(Vectorize(sorting_f),lower = N-1, upper = N)$value 
 #Sorting function
 delta_sort = function(i){
-  aux = (exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d)))/norm_const_delta_sort
+  aux = sorting_f(i)/norm_const_delta_sort
   return(aux)
 }
 #Capital productivity
@@ -255,12 +262,12 @@ M = function(s,w0,w1,i){
 }
 #Average labor productivity for contract without health insurance
 gamma_prod_bar_0 = function(s,w0,w1,i){
-  aux = s*gamma_prod(i)*((1-rho)*Chi_0g(s,w0,w1,i)+rho)
+  aux = s*gamma_prod(s,i)*((1-rho)*Chi_0g(s,w0,w1,i)+rho)
   return(aux)
 }
 #Average labor productivity for contract with health insurance
 gamma_prod_bar_1 = function(s,w0,w1,i){
-  aux = s*gamma_prod(i)*((1-rho)*Chi_1g(s,w0,w1,i)+rho)
+  aux = s*gamma_prod(s,i)*((1-rho)*Chi_1g(s,w0,w1,i)+rho)
   return(aux)
 }
 #Effective wage without health insurance
@@ -388,7 +395,7 @@ Pi_0 = function(s,w0,w1,R,Y,i){
     Chi_0gi = (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
     Chi_1gi = ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
-  gamma_prod_bar_0i = s*gamma_prod(i)*((1-rho)*Chi_0gi+rho)
+  gamma_prod_bar_0i = s*gamma_prod(s,i)*((1-rho)*Chi_0gi+rho)
   w_hat0i = w0/gamma_prod_bar_0i
   p_0i = (eta*w_hat0i)/((1-eta)*psi)
   ###
@@ -417,7 +424,7 @@ Pi_1 = function(s,w0,w1,R,Y,i){
     Chi_0gi = (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
     Chi_1gi = ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
-  gamma_prod_bar_1i = s*gamma_prod(i)*((1-rho)*Chi_1gi+rho)
+  gamma_prod_bar_1i = s*gamma_prod(s,i)*((1-rho)*Chi_1gi+rho)
   E_mg = E_m('g')
   E_mb = E_m('b')
   Mi = (E_mg*Chi_1gi+E_mb*(1-Chi_1gi))/l1_s(w1)
@@ -505,7 +512,7 @@ l0H_excess_d_prob = function(p){
     Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
     Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
-  gamma_prod_bar_0i = function(i) sH*gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
+  gamma_prod_bar_0i = function(i) sH*gamma_prod(sH,i)*((1-rho)*Chi_0gi(i)+rho)
   w_hat0i = function(i) w0H/gamma_prod_bar_0i(i)
   p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
   ###
@@ -548,7 +555,7 @@ l0L_excess_d_prob = function(p){
     Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
     Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
-  gamma_prod_bar_0i = function(i) sL*gamma_prod(i)*((1-rho)*Chi_0gi(i)+rho)
+  gamma_prod_bar_0i = function(i) sL*gamma_prod(sL,i)*((1-rho)*Chi_0gi(i)+rho)
   w_hat0i = function(i) w0L/gamma_prod_bar_0i(i)
   p_0i = function(i) (eta*w_hat0i(i))/((1-eta)*psi)
   ###
@@ -591,7 +598,7 @@ l1H_excess_d_prob = function(p){
     Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
     Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
-  gamma_prod_bar_1i = function(i) sH*gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
+  gamma_prod_bar_1i = function(i) sH*gamma_prod(sH,i)*((1-rho)*Chi_1gi(i)+rho)
   E_mg = E_m('g')
   E_mb = E_m('b')
   Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1H)
@@ -636,7 +643,7 @@ l1L_excess_d_prob = function(p){
     Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
     Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
-  gamma_prod_bar_1i = function(i) sL*gamma_prod(i)*((1-rho)*Chi_1gi(i)+rho)
+  gamma_prod_bar_1i = function(i) sL*gamma_prod(sL,i)*((1-rho)*Chi_1gi(i)+rho)
   E_mg = E_m('g')
   E_mb = E_m('b')
   Mi = function(i) (E_mg*Chi_1gi(i)+E_mb*(1-Chi_1gi(i)))/l1_s(w1L)
@@ -720,7 +727,7 @@ Y_excess_s_prob = function(p){
     }
     ###No insurance
     ###High skill
-    gamma_prod_bar_0iH = function(i) sH*gamma_prod(i)*((1-rho)*Chi_0giH(i)+rho)
+    gamma_prod_bar_0iH = function(i) sH*gamma_prod(sH,i)*((1-rho)*Chi_0giH(i)+rho)
     w_hat0iH = function(i) w0H/gamma_prod_bar_0iH(i)
     p_0iH = function(i) (eta*w_hat0iH(i))/((1-eta)*psi)
     y0iH = function(i){
@@ -730,7 +737,7 @@ Y_excess_s_prob = function(p){
       return(aux)
     }
     ###Low skill
-    gamma_prod_bar_0iL = function(i) sL*gamma_prod(i)*((1-rho)*Chi_0giL(i)+rho)
+    gamma_prod_bar_0iL = function(i) sL*gamma_prod(sL,i)*((1-rho)*Chi_0giL(i)+rho)
     w_hat0iL = function(i) w0L/gamma_prod_bar_0iL(i)
     p_0iL = function(i) (eta*w_hat0iL(i))/((1-eta)*psi)
     y0iL = function(i){
@@ -741,7 +748,7 @@ Y_excess_s_prob = function(p){
     }
     ###With insurance
     ###High skill
-    gamma_prod_bar_1iH = function(i) sH*gamma_prod(i)*((1-rho)*Chi_1giH(i)+rho)
+    gamma_prod_bar_1iH = function(i) sH*gamma_prod(sH,i)*((1-rho)*Chi_1giH(i)+rho)
     E_mg = E_m('g')
     E_mb = E_m('b')
     MiH = function(i) (E_mg*Chi_1giH(i)+E_mb*(1-Chi_1giH(i)))/l1_s(w1H)
@@ -754,7 +761,7 @@ Y_excess_s_prob = function(p){
       return(aux)
     }
     ###Low skill
-    gamma_prod_bar_1iL = function(i) sL*gamma_prod(i)*((1-rho)*Chi_1giL(i)+rho)
+    gamma_prod_bar_1iL = function(i) sL*gamma_prod(sL,i)*((1-rho)*Chi_1giL(i)+rho)
     E_mg = E_m('g')
     E_mb = E_m('b')
     MiL = function(i) (E_mg*Chi_1giL(i)+E_mb*(1-Chi_1giL(i)))/l1_s(w1L)
@@ -1145,9 +1152,10 @@ obj_fun = function(p){
 #(run)
 #Non linear equation solver (is very fast but a little more sensitive to initial conditions)
 #Using exponentials in the equations to ensure positivity
-nles_sol = nleqslv(x = c(log(3),log(1),log(2),log(0.5),log(1),log(20)), fn = F_zeros, jac=NULL,
-                   method = "Broyden",
-                   jacobian=FALSE)
+#Change method to "Newton" if "Broyden" doesn't converge.
+#If the algorithm doesn't find a better point, try decreasing C_IN
+
+nles_sol = nleqslv(x = c(log(3),log(1),log(2),log(0.5),log(1),log(20)), fn = F_zeros, jac=NULL, method = "Broyden", jacobian=FALSE)
 nles_sol
 
 w0H = exp(nles_sol$x[1])
@@ -1169,11 +1177,9 @@ w0 = (w0H*L0_H + w0L*L0_L)/(L0_H+L0_L)
 c(w0,w1)
 w0-w1
 
-
 # Multiple Equilibria -----------------------------------------------------
 
-
-N_sims = 100
+N_sims = 10
 set.seed(123)
 
 F_zero_mat = function(x){
@@ -1298,39 +1304,46 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + xlab("i") + ylab("") +
   stat_function(fun=Chi_1gH_plot, geom="line",aes(colour = "Chi_1gH")) +
   stat_function(fun=Chi_1gL_plot, geom="line",aes(colour = "Chi_1gL"))
 ggsave(file="endogenous_proportion_healthy.pdf", width=8, height=5)
-#PlotEvolution of Expected medical expenditure across i under Advantageous selection
-M_plot = function(i) M(w0=w0, w1=w1,i)
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=M_plot, geom="line", aes(colour = "M")) + 
-  xlab("i") +  ylab("")
-ggsave(file="expected_medical_expenditure.pdf", width=8, height=5)
+#Plot difference for adverse selection
+Delta_Chi_gH = function(i) Chi_0gH_plot(i) - Chi_1gH_plot(i)
+Delta_Chi_gL = function(i) Chi_0gL_plot(i) - Chi_1gL_plot(i)
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + xlab("i") + ylab("") +
+  stat_function(fun=Delta_Chi_gH, geom="line", aes(colour = "Delta_Chi_gH")) + 
+  stat_function(fun=Delta_Chi_gL, geom="line", aes(colour = "Delta_Chi_gL")) +
+  ggtitle("Degree of Adverse selection conditional on Skill type")
+ggsave(file="delta_endogenous_proportion_healthy.pdf", width=8, height=5)
+
+#PlotEvolution of Expected medical expenditure across i 
+M_H_plot = function(i) M(sH, w0H, w1H,i)
+M_L_plot = function(i) M(sL, w0L, w1L,i)
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + xlab("i") +  ylab("") +
+  stat_function(fun=M_H_plot, geom="line", aes(colour = "M_H")) +
+  stat_function(fun=M_L_plot, geom="line", aes(colour = "M_L")) 
+ggsave(file="expected_medical_expenditure_skill_type.pdf", width=8, height=5)
 #Plot Labor average productivity
-gamma_prod_bar_0_plot = function(i) gamma_prod_bar_0(w0=w0, w1=w1,i)
-gamma_prod_bar_1_plot = function(i) gamma_prod_bar_1(w0=w0, w1=w1,i)
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=gamma_prod_bar_0_plot, geom="line",  aes(colour = "gamma_bar0")) + 
-  xlab("i") +  ylab("") + stat_function(fun=gamma_prod_bar_1_plot, geom="line",
-                aes(colour = "gamma_bar1"))
+gamma_prod_bar_0H_plot = function(i) gamma_prod_bar_0(sH, w0H, w1H,i)
+gamma_prod_bar_0L_plot = function(i) gamma_prod_bar_0(sL, w0L, w1L,i)
+gamma_prod_bar_1H_plot = function(i) gamma_prod_bar_1(sH, w0H, w1H,i)
+gamma_prod_bar_1L_plot = function(i) gamma_prod_bar_1(sL, w0L, w1L,i)
+ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + xlab("i") +  ylab("") + 
+  stat_function(fun=gamma_prod_bar_0H_plot, geom="line", aes(colour = "gamma_bar0H")) + 
+  stat_function(fun=gamma_prod_bar_1H_plot, geom="line", aes(colour = "gamma_bar1H")) +
+  stat_function(fun=gamma_prod_bar_0L_plot, geom="line", aes(colour = "gamma_bar0L")) + 
+  stat_function(fun=gamma_prod_bar_1L_plot, geom="line", aes(colour = "gamma_bar1L"))
 ggsave(file="average_labor_productivity.pdf", width=8, height=5)
 #Plot effective wages and prices
-w_hat0_plot = function(i) w_hat0(w0=w0, w1=w1,i)
-w_hat1_plot = function(i) w_hat1(w0=w0, w1=w1,i)
-R_hat_plot = function(i) R_hat(R=R,i)
-X = X_tilde(w0,w1,Y)
-I0 = I_tilde0(w0,w1,R,Y)
-I1 = I_tilde1(w0,w1,R,Y)
-ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + 
-  stat_function(fun=w_hat0_plot, geom="line",  aes(colour = "w_hat0")) + 
-  xlab("i") +  ylab("") + stat_function(fun=w_hat1_plot, geom="line",
-                                         aes(colour = "w_hat1")) +
-  stat_function(fun=R_hat_plot, geom="line", aes(colour = "R_hat")) +
-  geom_vline(xintercept = X,linetype=4, colour="black") +
-  geom_vline(xintercept = I0,linetype=3, colour="black") +
-  geom_vline(xintercept = I1,linetype=2, colour="black") +
-  geom_text(mapping = aes(label = "X", y = 0, x = X+0.02),colour="blue") +
-  geom_text(mapping = aes(label = "I0", y = 0, x = I0-0.02),colour="blue") +
-  geom_text(mapping = aes(label = "I1", y = 0, x = I1+0.02),colour="blue") +
-  ggtitle(paste("(w0,w1,R,Y) = (",round(w0,2),",",round(w1,2),",",round(R,2),",",round(Y,2),")"))
+w_hat0H_plot = function(i) w_hat0(sH, w0H, w1H,i)
+w_hat0L_plot = function(i) w_hat0(sL, w0L, w1L,i)
+w_hat1H_plot = function(i) w_hat1(sH, w0H, w1H,i)
+w_hat1L_plot = function(i) w_hat1(sL, w0L, w1L,i)
+R_hat_plot = function(i) R_hat(R,i)
+
+ggplot(data.frame(x=c(N-1,2)), aes(x=x)) + xlab("i") +  ylab("") + 
+  stat_function(fun=w_hat0H_plot, geom="line", aes(colour = "w_hat0H")) + 
+  stat_function(fun=w_hat1H_plot, geom="line", aes(colour = "w_hat1H")) +
+  stat_function(fun=w_hat0L_plot, geom="line", aes(colour = "w_hat0L")) + 
+  stat_function(fun=w_hat1L_plot, geom="line", aes(colour = "w_hat1L")) +
+  stat_function(fun=R_hat_plot, geom="line", aes(colour = "R_hat"))
 ggsave(file="effective_wages_equilibrium.pdf", width=8, height=5)
 #Plot conditional labor demanded and capital
 l_0d_plot = function(i) l_hat0(w0=w0,w1=w1,i,Y=10)/gamma_prod_bar_0(w0=w0,w1=w1,i)
@@ -1440,6 +1453,13 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) +
                 round(w1H,2),",",round(w1L,2),",",round(R,2),",",
                 round(Y,2),") \n","(w0,w1) = ","(",round(w0,2),",",round(w1,1),")"))
 ggsave(file="conditional_profits_prob_equilibrium.pdf", width=8, height=5)
+
+
+
+
+
+
+
 
 
 
