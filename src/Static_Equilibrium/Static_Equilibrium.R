@@ -22,7 +22,7 @@ setwd(dir)
 
 # Parameters --------------------------------------------------------------
 #Household 
-sH = 4              #Skill High type 
+sH = 5              #Skill High type 
 sL = 1              #Skill Low type
 lambda_gH = 0.25    #Measure healthy workers High skill
 lambda_gL = 0.25    #Measure healthy workers Low skill
@@ -32,9 +32,9 @@ theta_L = 0         #Domain for theta
 theta_H = Inf
 m_L = 0             #Domain for medical expenditure shocks
 m_F = Inf
-shape_gH = 3         #Shape parameter of theta (Gamma distribution) High skill
+shape_gH = 1.6         #Shape parameter of theta (Gamma distribution) High skill
 shape_gL = 1         #Shape parameter of theta (Gamma distribution) Low skill
-shape_bH = 0.3       #Shape parameter of theta (Gamma distribution) High skill
+shape_bH = 0.6       #Shape parameter of theta (Gamma distribution) High skill
 shape_bL = 0.1       #Shape parameter of theta (Gamma distribution) Low skill
                      #For a given scale parameter, higher shape parameter means more risk averse households
 scale_gH = 1         #Scale parameter of theta (Gamma distribution) High skill
@@ -57,7 +57,7 @@ zeta = 2            #Elasticity of substitution between factors (if fixed), just
 C_IN = 0.01          #Health Insurance Fixed Cost (we can start with a very low one)
 A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
-delta_H = 0.5       #Parameter in labor productivity of High skill type
+delta_H =  1.5       #Parameter in labor productivity of High skill type
 lambda_d = 10       #Parameter in sorting function
 alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
@@ -1160,9 +1160,9 @@ obj_fun = function(p){
 #Change method to "Newton" if "Broyden" doesn't converge.
 #If the algorithm doesn't find a better point, try decreasing C_IN
 
-nles_sol = nleqslv(x = c(log(3),log(1),log(2),log(0.5),log(1),log(20)), 
-                   fn = F_zeros, jac=NULL, method = "Newton", jacobian=FALSE,
-                   control = list("allowSingular"=TRUE))
+nles_sol = nleqslv(x = c(log(14),log(2),log(12),log(0.5),log(1.6),log(40)), 
+                   fn = F_zeros, jac=NULL, method = "Broyden", jacobian=FALSE,
+                   control = list("allowSingular"=TRUE), global="dbldog")
 nles_sol
 
 w0H = exp(nles_sol$x[1])
@@ -1186,8 +1186,8 @@ w0-w1
 
 # Multiple Equilibria -----------------------------------------------------
 
-N_sims = 20
-set.seed(123)
+N_sims = 10
+set.seed(3)
 
 F_zero_mat = function(x){
   aux = matrix(nrow = N_sims, ncol = 6)
@@ -1196,14 +1196,21 @@ F_zero_mat = function(x){
   }
   return(aux)
 }
-
 x_initial = matrix(runif(6*N_sims,min=0.1,max=5), N_sims, 6) # N initial guesses, each of length 6
+#This code runs nleqslv iteratively for each initial guess
+#So far I've found just one equilibrium
+#TODO: Sometimes I get a problem of Non-finite value in he integral, check this maybe with tryCatch
 ans = searchZeros(log(x_initial),F_zeros, method="Broyden",global="dbldog")
 ans$x
 
-
-
-
+w0H = exp(ans$x[1])
+w0L = exp(ans$x[2])
+w1H = exp(ans$x[3])
+w1L = exp(ans$x[4])
+R = exp(ans$x[5])
+Y = exp(ans$x[6])
+val = c(w0H,w0L,w1H,w1L,R,Y)
+val
 
 
 
