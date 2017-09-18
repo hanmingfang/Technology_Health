@@ -5,7 +5,7 @@
 #So Im taking these beliefs to be the same
 Chi_0g = function(s,w0,w1,i){
   #Assign the same beliefs for the moment if there is no Labor supply
-  if(is.na(L0_s('g',s,w0,w1)/(L0_s('g',s,w0,w1) + L0_s('b',s,w0,w1)))){
+  if((L0_s('g',s,w0,w1) + L0_s('b',s,w0,w1))==0){
     aux = Chi_1g(s,w0,w1,i)
   }
   else{
@@ -16,7 +16,7 @@ Chi_0g = function(s,w0,w1,i){
 #Endogenous proportion of healthy workers for health insurance
 Chi_1g = function(s,w0,w1,i){
   #Assign the same beliefs for the moment if there is no Labor supply
-  if(is.na(L1_s('g',s,w0,w1)/(L1_s('g',s,w0,w1) + L1_s('b',s,w0,w1)))){
+  if((L1_s('g',s,w0,w1) + L1_s('b',s,w0,w1))==0){
     aux = Chi_0g(s,w0,w1,i)
   }
   else{
@@ -25,9 +25,10 @@ Chi_1g = function(s,w0,w1,i){
   return(aux)
 }
 #Expected expenditure shock
+#TODO: it has the analytical formula for exponential dist
 E_m = function(h){
-  if(h == 'g'){aux = (1-P_0g)*E(D_mg)}
-  else{aux = (1-P_0b)*E(D_mb)}
+  if(h == 'g'){aux = (1-P_0g)*(1/rate_g)}
+  else{aux = (1-P_0b)*(1/rate_b)}
   return(aux)
 }
 #Expected firm's medical expenditure
@@ -158,11 +159,11 @@ Pi_0 = function(s,w0,w1,R,Y,i){
   L1_s_g_var = L1_s_memo('g',s,w0,w1)
   L1_s_b_var = L1_s_memo('b',s,w0,w1)
   #Assigning the same beliefs if no labor supply
-  if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
+  if((L0_s_g_var + L0_s_b_var)==0){
     Chi_0gi = (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
     Chi_1gi = ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
-  else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
+  else if((L1_s_g_var + L1_s_b_var)==0){
     Chi_0gi = (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
     Chi_1gi = ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
   }
@@ -187,11 +188,11 @@ Pi_1 = function(s,w0,w1,R,Y,i){
   L1_s_g_var = L1_s_memo('g',s,w0,w1)
   L1_s_b_var = L1_s_memo('b',s,w0,w1)
   #Assigning the same beliefs if no labor supply
-  if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
+  if((L0_s_g_var + L0_s_b_var)==0){
     Chi_0gi = (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
     Chi_1gi = ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
-  else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
+  else if((L1_s_g_var + L1_s_b_var)==0){
     Chi_0gi = (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
     Chi_1gi = ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
   }

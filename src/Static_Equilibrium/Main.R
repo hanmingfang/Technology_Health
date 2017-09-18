@@ -1,5 +1,5 @@
 #Solve for static equilibrium 
-
+rm(list = ls())
 # Libraries ---------------------------------------------------------------
 
 library(ggplot2, quietly = TRUE)
@@ -31,11 +31,11 @@ theta_L = 0         #Domain for theta
 theta_H = Inf
 m_L = 0             #Domain for medical expenditure shocks
 m_F = Inf
-shape_gH = 1.6         #Shape parameter of theta (Gamma distribution) High skill
+shape_gH = 3         #Shape parameter of theta (Gamma distribution) High skill
 shape_gL = 1         #Shape parameter of theta (Gamma distribution) Low skill
 shape_bH = 0.6       #Shape parameter of theta (Gamma distribution) High skill
-shape_bL = 0.1       #Shape parameter of theta (Gamma distribution) Low skill
-                     #For a given scale parameter, higher shape parameter means more risk averse households
+shape_bL = 0.3       #Shape parameter of theta (Gamma distribution) Low skill
+#For a given scale parameter, higher shape parameter means more risk averse households
 scale_gH = 1         #Scale parameter of theta (Gamma distribution) High skill
 scale_gL = 1         #Scale parameter of theta (Gamma distribution) Low skill
 scale_bH = 1         #Scale parameter of theta (Gamma distribution) High skill
@@ -56,13 +56,14 @@ zeta = 2            #Elasticity of substitution between factors (if fixed), just
 C_IN = 0.01          #Health Insurance Fixed Cost (we can start with a very low one)
 A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
-delta_H =  1.5       #Parameter in labor productivity of High skill type
+delta_H =  0.4       #Parameter in labor productivity of High skill type
 lambda_d = 10       #Parameter in sorting function
 alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
 s_ccp = 1           #Parameter to scale ccps 
-tol = 1e-8          #Tolerance for unitroot, affects computation time
+tol = 1e-12          #Tolerance for unitroot, affects computation time
 K = 1               #Capital stock in the economy
+
 
 # Primitive Functions ---------------------------------------------------------------
 #Distribution objects
@@ -155,9 +156,12 @@ source("src/Static_Equilibrium/Equilibrium_fcns.R")
 #Using exponentials in the equations to ensure positivity
 #Change method to "Newton" if "Broyden" doesn't converge.
 #If the algorithm doesn't find a better point, try decreasing C_IN
-nles_sol = nleqslv(x = c(log(14),log(2),log(12),log(0.5),log(1.6),log(40)), 
-                   fn = F_zeros, jac=NULL, method = "Broyden", jacobian=FALSE,
-                   control = list("allowSingular"=TRUE), global="dbldog")
+ptm = proc.time()
+nles_sol = nleqslv(x = c(log(11),log(2),log(9),log(0.3),log(1.3),log(29)), 
+                   fn = F_zeros, jac=NULL, method = "Newton", jacobian=FALSE, xscalm = "fixed",
+                   control = list("allowSingular"=TRUE, scalex = c(0.1,1,0.1,1,1,0.01), trace = 1, btol=.001),
+                   global="dbldog")
+proc.time() - ptm
 nles_sol
 
 w0H = exp(nles_sol$x[1])
@@ -169,19 +173,28 @@ Y = exp(nles_sol$x[6])
 val = c(w0H,w0L,w1H,w1L,R,Y)
 val
 #Checking for wieghted wages 
-L1_H = L1_s('g',sH,w0H,w1H)+L1_s('b',sH,w0H,w1H)
-L1_L = L1_s('g',sL,w0L,w1L)+L1_s('b',sL,w0L,w1L)
+L1_gH = L1_s('g',sH,w0H,w1H)
+L1_bH = L1_s('b',sH,w0H,w1H)
+L1_H = L1_gH + L1_bH
+L1_gL = L1_s('g',sL,w0L,w1L)
+L1_bL = L1_s('b',sL,w0L,w1L)
+L1_L = L1_gL + L1_bL
 w1 = (w1H*L1_H + w1L*L1_L)/(L1_H+L1_L) 
 
-L0_H = L0_s('g',sH,w0H,w1H)+L0_s('b',sH,w0H,w1H)
-L0_L = L0_s('g',sL,w0L,w1L)+L0_s('b',sL,w0L,w1L)
+L0_gH = L0_s('g',sH,w0H,w1H)
+L0_bH = L0_s('b',sH,w0H,w1H)
+L0_H = L0_gH + L0_bH
+L0_gL = L0_s('g',sL,w0L,w1L)
+L0_bL = L0_s('b',sL,w0L,w1L)
+L0_L = L0_gL + L0_bL
 w0 = (w0H*L0_H + w0L*L0_L)/(L0_H+L0_L) 
 c(w0,w1)
 #Checking if w1>w0
 w0-w1
 
-
-
-
+#To test different algorithms uncomment next line
+#ptm = proc.time()
+#testnslv(x =c(log(10),log(2),log(8),log(0.2),log(1.3),log(28)), fn = F_zeros)
+#proc.time() - ptm
 
 

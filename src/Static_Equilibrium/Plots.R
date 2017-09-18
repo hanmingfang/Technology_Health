@@ -23,7 +23,7 @@ gamma_prodH_plot = function(i) gamma_prod(sH,i)
 gamma_prodL_plot = function(i) gamma_prod(sL,i)
 ggplot(data.frame(x=c(N-1,N)), aes(x=x))+ xlab("i") + ylab("") +
   stat_function(fun=gamma_prodH_plot, geom="line", aes(colour = "gamma_prodH")) + 
-  stat_function(fun=gamma_prodL_plot, geom="line", aes(colour = "gamma_prodL")) + 
+  stat_function(fun=gamma_prodL_plot, geom="line", aes(colour = "gamma_prodL")) 
 ggsave(file="gamma_prod.pdf", width=8, height=5)
 
 #Plot delta_sort
@@ -219,5 +219,29 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + xlab("i") + ylab("") +
                 round(w1H,2),",",round(w1L,2),",",round(R,2),",",
                 round(Y,2),") \n","(w0,w1) = ","(",round(w0,2),",",round(w1,1),")"))
 ggsave(file="conditional_profits_prob_equilibrium.pdf", width=8, height=5)
+
+#Plot theta_ins with MGF
+#Delta_w = w0H-w1H
+#theta_ins_MGF_g = function(theta) rate_g/(rate_g-theta) - (exp(theta*(Delta_w))-P_0g)/(1-P_0g)
+#theta_ins_MGF_b = function(theta) rate_b/(rate_b-theta) - (exp(theta*(Delta_w))-P_0b)/(1-P_0b)
+#ggplot(data.frame(x=c(0,0.08)), aes(x=x)) + xlab("theta") + ylab("") +
+#  stat_function(fun = theta_ins_MGF_g, geom="line", aes(colour = "Theta_MGF_g")) +
+#  stat_function(fun = theta_ins_MGF_b, geom="line", aes(colour = "Theta_MGF_b")) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

@@ -39,11 +39,11 @@ l0H_excess_d_prob = function(p){
   L1_s_g_var = L1_s_memo('g',sH,w0H,w1H)
   L1_s_b_var = L1_s_memo('b',sH,w0H,w1H)
   #Assigning the same beliefs if no labor supply
-  if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
+  if((L0_s_g_var + L0_s_b_var)==0){
     Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
     Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
-  else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
+  else if((L1_s_g_var + L1_s_b_var)==0){
     Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
     Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
   }
@@ -82,11 +82,11 @@ l0L_excess_d_prob = function(p){
   L1_s_g_var = L1_s_memo('g',sL,w0L,w1L)
   L1_s_b_var = L1_s_memo('b',sL,w0L,w1L)
   #Assigning the same beliefs if no labor supply
-  if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
+  if((L0_s_g_var + L0_s_b_var)==0){
     Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
     Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
-  else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
+  else if((L1_s_g_var + L1_s_b_var)==0){
     Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
     Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
   }
@@ -125,11 +125,11 @@ l1H_excess_d_prob = function(p){
   L1_s_g_var = L1_s_memo('g',sH,w0H,w1H)
   L1_s_b_var = L1_s_memo('b',sH,w0H,w1H)
   #Assigning the same beliefs if no labor supply
-  if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
+  if((L0_s_g_var + L0_s_b_var)==0){
     Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
     Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
-  else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
+  else if((L1_s_g_var + L1_s_b_var)==0){
     Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
     Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
   }
@@ -170,11 +170,11 @@ l1L_excess_d_prob = function(p){
   L1_s_g_var = L1_s_memo('g',sL,w0L,w1L)
   L1_s_b_var = L1_s_memo('b',sL,w0L,w1L)
   #Assigning the same beliefs if no labor supply
-  if(is.na((L0_s_g_var)/(L0_s_g_var + L0_s_b_var))){
+  if((L0_s_g_var + L0_s_b_var)==0){
     Chi_0gi = function(i) (delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var)
     Chi_1gi = function(i) ((delta_sort(i)*L1_s_g_var)/(delta_sort(i)*L1_s_g_var + L1_s_b_var))
   }
-  else if(is.na((L1_s_g_var)/(L1_s_g_var + L1_s_b_var))){
+  else if((L1_s_g_var + L1_s_b_var)==0){
     Chi_0gi = function(i) (delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var)
     Chi_1gi = function(i) ((delta_sort(i)*L0_s_g_var)/(delta_sort(i)*L0_s_g_var + L0_s_b_var))
   }
@@ -220,11 +220,11 @@ Y_excess_s_prob = function(p){
   L1_s_b_varH = L1_s_memo('b',sH,w0H,w1H)
   
   #Assigning the same beliefs if no labor supply
-  if(is.na((L0_s_g_varH)/(L0_s_g_varH + L0_s_b_varH))){
+  if((L0_s_g_varH + L0_s_b_varH)==0){
     Chi_0giH = function(i) (delta_sort(i)*L1_s_g_varH)/(delta_sort(i)*L1_s_g_varH + L1_s_b_varH)
     Chi_1giH = function(i) ((delta_sort(i)*L1_s_g_varH)/(delta_sort(i)*L1_s_g_varH + L1_s_b_varH))
   }
-  else if(is.na((L1_s_g_varH)/(L1_s_g_varH + L1_s_b_varH))){
+  else if((L1_s_g_varH + L1_s_b_varH)==0){
     Chi_0giH = function(i) (delta_sort(i)*L0_s_g_varH)/(delta_sort(i)*L0_s_g_varH + L0_s_b_varH)
     Chi_1giH = function(i) ((delta_sort(i)*L0_s_g_varH)/(delta_sort(i)*L0_s_g_varH + L0_s_b_varH))
   }
@@ -239,11 +239,11 @@ Y_excess_s_prob = function(p){
   L1_s_b_varL = L1_s_memo('b',sL,w0L,w1L)
   
   #Assigning the same beliefs if no labor supply
-  if(is.na((L0_s_g_varL)/(L0_s_g_varL + L0_s_b_varL))){
+  if((L0_s_g_varL + L0_s_b_varL)==0){
     Chi_0giL = function(i) (delta_sort(i)*L1_s_g_varL)/(delta_sort(i)*L1_s_g_varL + L1_s_b_varL)
     Chi_1giL = function(i) ((delta_sort(i)*L1_s_g_varL)/(delta_sort(i)*L1_s_g_varL + L1_s_b_varL))
   }
-  else if(is.na((L1_s_g_varL)/(L1_s_g_varL + L1_s_b_varL))){
+  else if((L1_s_g_varL + L1_s_b_varL)==0){
     Chi_0giL = function(i) (delta_sort(i)*L0_s_g_varL)/(delta_sort(i)*L0_s_g_varL + L0_s_b_varL)
     Chi_1giL = function(i) ((delta_sort(i)*L0_s_g_varL)/(delta_sort(i)*L0_s_g_varL + L0_s_b_varL))
   }

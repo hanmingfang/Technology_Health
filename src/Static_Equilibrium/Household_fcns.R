@@ -33,35 +33,29 @@ E_u0 = function(theta,h,w0){
   }
   return(aux)
 }
-#Threshold for household insurance decision
-#TODO: include \n in the message
-#Notice that as we have assumed a common domain for theta regardless of the skill type
-#We do not need to index this function by skill, and will depend just on wages and health
-theta_ins = function(h,w0,w1){
-  initial = theta_L  #Search over
-  #final = theta_H
-  #As we can not evaluate f(Inf) I use a lower number, but allowing uniroot to extend it
-  final = theta_ins_final 
-  fun = function (theta) E_u0(theta,h,w0) - u1(theta,h,w1)   #This is a decreasing function of theta
-  if(E_u0(theta_L,h,w0) - u1(theta_L,h,w1) < 0){
-    aux = theta_L
-  } #If at lower bound is negative
-  #TODO: Uncomment the next line if we have bouded support for Theta
-  #else if(E_u0(theta_H,h,w0) - u1(theta_H,h,w1) > 0){aux = theta_H} #This line works only with bounded support for theta
-  else{
-    aux = tryCatch(
-      {
-        return(uniroot(fun, c(initial,final), tol = tol, extendInt = "downX")$root) #Get the root, 
-        #downX is to tell that is decresing on theta, so can look further than the specified range
-      },
-      error = function(cond){
-        message(paste(cond,". Taking theta_ins(",round(w0,2),",",round(w1,2),") = +Inf"))
-        return(Inf)
-      }
-    )
+#New Theta bar threshold using MGF
+theta_ins_MGF = function(h,w0,w1){
+  Delta_w = w0-w1
+  if(h == 'g'){
+    rate_h = rate_g
+    P_0h = P_0g
   }
-  return(aux) 
+  else{
+    rate_h = rate_b
+    P_0h = P_0b
+  }
+  fun = function(theta) rate_h/(rate_h-theta) - (exp(theta*(Delta_w))-P_0h)/(1-P_0h)
+  initial = theta_L + 1e-10            #strictly greater than 0 (this number is arbitrary though)
+  final = rate_h                      #Due to the MGF, theta < rate_h
+  if(Delta_w <= (1-P_0h)/rate_h | fun(initial)>0){
+    aux = 0
+  }
+  else{
+    aux = uniroot(fun, c(initial,final), tol = tol, f.upper = Inf)$root
+  }
+  return(aux)
 }
+theta_ins = theta_ins_MGF
 #Aggregate labor supply for no insurance
 L0_s = function(h,s,w0,w1){
   if(h == 'g' & s == sH){aux = lambda_gH*l0_s(w0)*F_gH(theta_ins(h,w0,w1))} # L^0_gH
@@ -82,5 +76,6 @@ L1_s = function(h,s,w0,w1){
 }
 #Aggregate labor supply for insurance with memoise, this improves the speed if the same value is computed
 L1_s_memo = memoise(L1_s) 
+
 
 
