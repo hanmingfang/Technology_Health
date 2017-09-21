@@ -37,21 +37,27 @@ E_u0 = function(theta,h,w0){
 theta_ins_MGF = function(h,w0,w1){
   Delta_w = w0-w1
   if(h == 'g'){
-    rate_h = rate_g
+    mu_h = mu_g
+    sigma_h = sigma_g
     P_0h = P_0g
   }
   else{
-    rate_h = rate_b
+    mu_h = mu_b
+    sigma_h = sigma_b
     P_0h = P_0b
   }
-  fun = function(theta) rate_h/(rate_h-theta) - (exp(theta*(Delta_w))-P_0h)/(1-P_0h)
+  fun = function(theta) {
+   aux = exp(mu_h*theta+(sigma_h^2)*(theta^2)/2)*((1-pnorm(-mu_h/sigma_h -sigma_h*theta))/(1-pnorm(-mu_h/sigma_h))) -
+     (exp(theta*(Delta_w))-P_0h)/(1-P_0h)
+   return(aux)
+  }
   initial = theta_L + 1e-10            #strictly greater than 0 (this number is arbitrary though)
-  final = rate_h                      #Due to the MGF, theta < rate_h
-  if(Delta_w <= (1-P_0h)/rate_h | fun(initial)>0){
+  final = 100
+  if(Delta_w <= (1-P_0h)*(mu_h + (sigma_h*dnorm(-mu_h/sigma_h)/(1-pnorm(-mu_h/sigma_h)))) | fun(initial)>0){
     aux = 0
   }
   else{
-    aux = uniroot(fun, c(initial,final), tol = tol, f.upper = Inf)$root
+    aux = uniroot(fun, c(initial,final), tol = tol, extendInt = "upX")$root
   }
   return(aux)
 }

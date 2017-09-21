@@ -221,14 +221,28 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + xlab("i") + ylab("") +
 ggsave(file="conditional_profits_prob_equilibrium.pdf", width=8, height=5)
 
 #Plot theta_ins with MGF
-#Delta_w = w0H-w1H
-#theta_ins_MGF_g = function(theta) rate_g/(rate_g-theta) - (exp(theta*(Delta_w))-P_0g)/(1-P_0g)
-#theta_ins_MGF_b = function(theta) rate_b/(rate_b-theta) - (exp(theta*(Delta_w))-P_0b)/(1-P_0b)
-#ggplot(data.frame(x=c(0,0.08)), aes(x=x)) + xlab("theta") + ylab("") +
-#  stat_function(fun = theta_ins_MGF_g, geom="line", aes(colour = "Theta_MGF_g")) +
-#  stat_function(fun = theta_ins_MGF_b, geom="line", aes(colour = "Theta_MGF_b")) 
-
-
+w0H = 10.2
+w1H = 4
+Delta_w = w0H-w1H
+theta_ins_MGF_g = function(theta) {
+  mu_h = mu_g
+  sigma_h = sigma_g
+  P_0h = P_0g
+  aux = exp(mu_h*theta+(sigma_h^2)*(theta^2)/2)*((1-pnorm(-mu_h/sigma_h -sigma_h*theta))/(1-pnorm(-mu_h/sigma_h))) -
+    (exp(theta*(Delta_w))-P_0h)/(1-P_0h)
+  return(aux)
+}
+theta_ins_MGF_b = function(theta) {
+  mu_h = mu_b
+  sigma_h = sigma_b
+  P_0h = P_0b
+  aux = exp(mu_h*theta+(sigma_h^2)*(theta^2)/2)*((1-pnorm(-mu_h/sigma_h -sigma_h*theta))/(1-pnorm(-mu_h/sigma_h))) -
+    (exp(theta*(Delta_w))-P_0h)/(1-P_0h)
+  return(aux)
+}
+ggplot(data.frame(x=c(47,49)), aes(x=x)) + xlab("theta") + ylab("") +
+  stat_function(fun = theta_ins_MGF_g, geom="line", aes(colour = "Theta_MGF_g")) 
+ggsave(file="G(theta).pdf", width=8, height=5)
 
 
 

@@ -27,8 +27,17 @@ Chi_1g = function(s,w0,w1,i){
 #Expected expenditure shock
 #TODO: it has the analytical formula for exponential dist
 E_m = function(h){
-  if(h == 'g'){aux = (1-P_0g)*(1/rate_g)}
-  else{aux = (1-P_0b)*(1/rate_b)}
+  if(h == 'g'){
+    mu_h = mu_g
+    sigma_h = sigma_g
+    P_0h = P_0g
+  }
+  else{
+    mu_h = mu_b
+    sigma_h = sigma_b
+    P_0h = P_0b
+  }
+  aux = (1-P_0h)*(mu_h + (sigma_h*dnorm(-mu_h/sigma_h)/(1-pnorm(-mu_h/sigma_h))))
   return(aux)
 }
 #Expected firm's medical expenditure

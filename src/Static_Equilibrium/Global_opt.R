@@ -12,7 +12,7 @@ obj_fun_prob = function(p){
 #Global optimizer with CRS2 (is slow but quite robust)
 #Take away exponentials in the excess demand functions if you are using this method
 ptm = proc.time()
-crs2_sol = crs2lm(x0 = c(log(14),log(2),log(12),log(0.5),log(1.6),log(40)),
+crs2_sol = crs2lm(x0 = c(log(300),log(5.4),log(300),log(3.3),log(4.6),log(600)),
                   fn = obj_fun_prob,
                   lower = c(log(0.001),log(0.001),log(0.001),log(0.001),log(0.001),log(0.001)),
                   upper = c(log(1000),log(1000),log(1000),log(1000),log(1000),log(10000)),
