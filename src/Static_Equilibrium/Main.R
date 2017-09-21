@@ -42,6 +42,7 @@ scale_bH = 1         #Scale parameter of theta (Gamma distribution) High skill
 scale_bL = 1         #Scale parameter of theta (Gamma distribution) Low skill
 rate_g = 1.5           #Rate for exponential distribution for medical exp. healthy workers  (Mean=1/rate)
 rate_b = 0.25        #Rate for exponential distribution for medical exp. unhealthy workers
+M_trunc = 150        #Truncation for TEXP medical expenditure
 P_0g =  0.7          #Probability of 0 medical expenditure for healthy worker 
 P_0b =  0.5          #Probability of 0 medical expenditure for unhealthy worker
 theta_ins_final = 10 #As we can not evaluate f(Inf) I use an upper bound number, but allowing uniroot to extend it in theta_ins
@@ -56,7 +57,7 @@ zeta = 2            #Elasticity of substitution between factors (if fixed), just
 C_IN = 0.01          #Health Insurance Fixed Cost (we can start with a very low one)
 A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
-delta_H =  4       #Parameter in labor productivity of High skill type
+delta_H =  5       #Parameter in labor productivity of High skill type
 lambda_d = 10       #Parameter in sorting function
 alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
@@ -157,8 +158,8 @@ source("src/Static_Equilibrium/Equilibrium_fcns.R")
 #Change method to "Newton" if "Broyden" doesn't converge.
 #If the algorithm doesn't find a better point, try decreasing C_IN
 ptm = proc.time()
-nles_sol = nleqslv(x = c(log(145),log(5.4),log(139),log(3.3),log(4.6),log(315)), 
-                   fn = F_zeros, jac=NULL, method = "Newton", jacobian=FALSE, xscalm = "fixed",
+nles_sol = nleqslv(x = c(log(328),log(8),log(314),log(5),log(6.8),log(688)), 
+                   fn = F_zeros, jac=NULL, method = "Broyden", jacobian=FALSE, xscalm = "fixed",
                    control = list("allowSingular"=TRUE, scalex = c(0.1,1,0.1,1,1,0.01), trace = 1, btol=.001),
                    global="dbldog")
 proc.time() - ptm

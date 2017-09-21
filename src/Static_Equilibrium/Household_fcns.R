@@ -44,14 +44,14 @@ theta_ins_MGF = function(h,w0,w1){
     rate_h = rate_b
     P_0h = P_0b
   }
-  fun = function(theta) rate_h/(rate_h-theta) - (exp(theta*(Delta_w))-P_0h)/(1-P_0h)
+  fun = function(theta) rate_h*(exp((theta-rate_h)*M_trunc)-1)/((1-exp(-rate_h*M_trunc))*(theta-rate_h)) - (exp(theta*(Delta_w))-P_0h)/(1-P_0h)
   initial = theta_L + 1e-10            #strictly greater than 0 (this number is arbitrary though)
-  final = rate_h                      #Due to the MGF, theta < rate_h
-  if(Delta_w <= (1-P_0h)/rate_h | fun(initial)>0){
+  final = 10                           #Arbitrary number, but allow to extend it
+  if(Delta_w <= (1-P_0h)*(1/rate_h - M_trunc/(exp(rate_h*M_trunc)-1)) | fun(initial)>0){
     aux = 0
   }
   else{
-    aux = uniroot(fun, c(initial,final), tol = tol, f.upper = Inf)$root
+    aux = uniroot(fun, c(initial,final), tol = tol, extendInt = "upX")$root
   }
   return(aux)
 }
