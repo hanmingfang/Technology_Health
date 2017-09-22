@@ -44,7 +44,15 @@ theta_ins_MGF = function(h,w0,w1){
     rate_h = rate_b
     P_0h = P_0b
   }
-  fun = function(theta) rate_h*(exp((theta-rate_h)*M_trunc)-1)/((1-exp(-rate_h*M_trunc))*(theta-rate_h)) - (exp(theta*(Delta_w))-P_0h)/(1-P_0h)
+  fun = function(theta) {
+    if(theta!= rate_h){
+      aux = rate_h*(exp((theta-rate_h)*M_trunc)-1)/((1-exp(-rate_h*M_trunc))*(theta-rate_h)) - (exp(theta*(Delta_w))-P_0h)/(1-P_0h)
+    }
+    else{
+      aux = rate_h*M_trunc/(1-exp(-rate_h*M_trunc))
+    }
+    return(aux)
+  }
   initial = theta_L + 1e-10            #strictly greater than 0 (this number is arbitrary though)
   final = 10                           #Arbitrary number, but allow to extend it
   if(Delta_w <= (1-P_0h)*(1/rate_h - M_trunc/(exp(rate_h*M_trunc)-1)) | fun(initial)>0){

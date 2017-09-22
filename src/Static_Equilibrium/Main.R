@@ -159,7 +159,7 @@ source("src/Static_Equilibrium/Equilibrium_fcns.R")
 #If the algorithm doesn't find a better point, try decreasing C_IN
 ptm = proc.time()
 nles_sol = nleqslv(x = c(log(328),log(8),log(314),log(5),log(6.8),log(688)), 
-                   fn = F_zeros, jac=NULL, method = "Broyden", jacobian=FALSE, xscalm = "fixed",
+                   fn = F_zeros, jac=NULL, method = "Newton", jacobian=FALSE, xscalm = "fixed",
                    control = list("allowSingular"=TRUE, scalex = c(0.1,1,0.1,1,1,0.01), trace = 1, btol=.001),
                    global="dbldog")
 proc.time() - ptm
