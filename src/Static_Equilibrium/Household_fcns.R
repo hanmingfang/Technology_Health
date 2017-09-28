@@ -33,8 +33,8 @@ E_u0 = function(theta,h,w0){
   }
   return(aux)
 }
-#New Theta bar threshold using MGF
-theta_ins_MGF = function(h,w0,w1){
+#New Theta bar threshold using MGF and Taylor approximation
+theta_ins_MGF_approx = function(h,w0,w1){
   Delta_w = w0-w1
   if(h == 'g'){
     rate_h = rate_g
@@ -46,10 +46,15 @@ theta_ins_MGF = function(h,w0,w1){
   }
   fun = function(theta) {
     if(theta!= rate_h){
-      aux = rate_h*(exp((theta-rate_h)*M_trunc)-1)/((1-exp(-rate_h*M_trunc))*(theta-rate_h)) - (exp(theta*(Delta_w))-P_0h)/(1-P_0h)
+      if(exp((theta-rate_h)*M_trunc)==Inf){ #Doing a Taylor approximation in this case
+        aux = ((theta-rate_h)*M_trunc +log(rate_h*(1-P_0h)) -log((1-exp(-rate_h*M_trunc))*(theta-rate_h)))/theta - Delta_w
+      }
+      else{
+        aux = log(rate_h*(exp((theta-rate_h)*M_trunc)-1)*(1-P_0h)/((1-exp(-rate_h*M_trunc))*(theta-rate_h)) + P_0h)/theta - Delta_w
+      }
     }
     else{
-      aux = rate_h*M_trunc/(1-exp(-rate_h*M_trunc))
+      aux = log(rate_h*M_trunc*(1-P_0h)/(1-exp(-rate_h*M_trunc)) + P_0h)/rate_h - Delta_w
     }
     return(aux)
   }
@@ -63,7 +68,7 @@ theta_ins_MGF = function(h,w0,w1){
   }
   return(aux)
 }
-theta_ins = theta_ins_MGF
+theta_ins = theta_ins_MGF_approx
 #Aggregate labor supply for no insurance
 L0_s = function(h,s,w0,w1){
   if(h == 'g' & s == sH){aux = lambda_gH*l0_s(w0)*F_gH(theta_ins(h,w0,w1))} # L^0_gH

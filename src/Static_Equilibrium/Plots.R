@@ -221,29 +221,32 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + xlab("i") + ylab("") +
 ggsave(file="conditional_profits_prob_equilibrium.pdf", width=8, height=5)
 
 #Plot theta_ins with MGF
-w0H = 70
+w0H = 104
 w1H = 4
 Delta_w = w0H-w1H
 #Delta_w = w0L-w1L
-theta_ins_MGF_g = function(theta) {
+
+theta_ins_MGF_g_w_approx = function(theta){
   rate_h = rate_g
   P_0h = P_0g
-  aux = rate_h*(exp((theta-rate_h)*M_trunc)-1)/((1-exp(-rate_h*M_trunc))*(theta-rate_h)) -
-    (exp(theta*(Delta_w))-P_0h)/(1-P_0h)
-  return(aux)
-}
-theta_ins_MGF_b = function(theta) {
-  rate_h = rate_b
-  P_0h = P_0b
-  aux = rate_h*(exp((theta-rate_h)*M_trunc)-1)/((1-exp(-rate_h*M_trunc))*(theta-rate_h)) -
-    (exp(theta*(Delta_w))-P_0h)/(1-P_0h)
+  if(theta!= rate_h){
+    if(exp((theta-rate_h)*M_trunc)==Inf){ #Doing a Taylor approximation in this case
+      aux = ((theta-rate_h)*M_trunc +log(rate_h*(1-P_0h)) -log((1-exp(-rate_h*M_trunc))*(theta-rate_h)))/theta - Delta_w
+    }
+    else{
+      aux = log(rate_h*(exp((theta-rate_h)*M_trunc)-1)*(1-P_0h)/((1-exp(-rate_h*M_trunc))*(theta-rate_h)) + P_0h)/theta - Delta_w
+    }
+  }
+  else{
+    aux = log(rate_h*M_trunc*(1-P_0h)/(1-exp(-rate_h*M_trunc)) + P_0h)/rate_h - Delta_w
+  }
   return(aux)
 }
 
-ggplot(data.frame(x=c(4.44,4.47)), aes(x=x)) + xlab("theta") + ylab("") +
-  stat_function(fun = theta_ins_MGF_g, geom="line", aes(colour = "Theta_MGF_g")) 
+ggplot(data.frame(x=c(0.001,10)), aes(x=x)) + xlab("theta") + ylab("") +
+  stat_function(fun = Vectorize(theta_ins_MGF_g_w_approx), geom="line", aes(colour = "P(theta)")) 
 #  stat_function(fun = theta_ins_MGF_b, geom="line", aes(colour = "Theta_MGF_b")) 
-ggsave(file="G(theta).pdf", width=8, height=5)
+ggsave(file="P(theta).pdf", width=8, height=5)
 
 
 
