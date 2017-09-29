@@ -68,7 +68,48 @@ theta_ins_MGF_approx = function(h,w0,w1){
   }
   return(aux)
 }
-theta_ins = theta_ins_MGF_approx
+
+theta_ins_MGF_overflow = function(h,w0,w1){
+  Delta_w = w0-w1
+  if(h == 'g'){
+    rate_h = rate_g
+    P_0h = P_0g
+  }
+  else{
+    rate_h = rate_b
+    P_0h = P_0b
+  }
+  fun = function(theta) {
+    if(theta > rate_h){
+      a = rate_h*(1-P_0h)
+      b = P_0h*(1-exp(-rate_h*M_trunc))
+      c = rate_h*(1-P_0h) + rate_h*P_0h*(1-exp(-rate_h*M_trunc)) 
+      y = (theta-rate_h)*M_trunc + log(a + (b*theta-c)*exp(-(theta-rate_h)*M_trunc)) 
+      aux = (y-log((1-exp(-rate_h*M_trunc))*(theta-rate_h)))/theta - Delta_w
+    }
+    else if(theta < rate_h){
+      a = rate_h*(1-P_0h)
+      b = P_0h*(1-exp(-rate_h*M_trunc))
+      c = rate_h*(1-P_0h) + rate_h*P_0h*(1-exp(-rate_h*M_trunc)) 
+      y = (theta-rate_h)*M_trunc + log(-a - (b*theta-c)*exp(-(theta-rate_h)*M_trunc)) 
+      aux = (y-log(-(1-exp(-rate_h*M_trunc))*(theta-rate_h)))/theta - Delta_w
+    }
+    else{
+      aux = log(rate_h*M_trunc*(1-P_0h)/(1-exp(-rate_h*M_trunc)) + P_0h)/rate_h - Delta_w
+    }
+    return(aux)
+  }
+  initial = theta_L + 1e-10            #strictly greater than 0 (this number is arbitrary though)
+  final = 10                           #Arbitrary number, but allow to extend it
+  if(Delta_w <= (1-P_0h)*(1/rate_h - M_trunc/(exp(rate_h*M_trunc)-1)) | fun(initial)>0){
+    aux = 0
+  }
+  else{
+    aux = uniroot(fun, c(initial,final), tol = tol, extendInt = "upX")$root
+  }
+  return(aux)
+}
+theta_ins = theta_ins_MGF_overflow
 #Aggregate labor supply for no insurance
 L0_s = function(h,s,w0,w1){
   if(h == 'g' & s == sH){aux = lambda_gH*l0_s(w0)*F_gH(theta_ins(h,w0,w1))} # L^0_gH

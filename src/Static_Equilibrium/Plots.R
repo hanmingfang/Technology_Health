@@ -243,8 +243,31 @@ theta_ins_MGF_g_w_approx = function(theta){
   return(aux)
 }
 
+theta_ins_MGF_g_w_overflow = function(theta){
+  rate_h = rate_g
+  P_0h = P_0g
+  if(theta > rate_h){
+    a = rate_h*(1-P_0h)
+    b = P_0h*(1-exp(-rate_h*M_trunc))
+    c = rate_h*(1-P_0h) + rate_h*P_0h*(1-exp(-rate_h*M_trunc)) 
+    y = (theta-rate_h)*M_trunc + log(a + (b*theta-c)*exp(-(theta-rate_h)*M_trunc)) 
+    aux = (y-log((1-exp(-rate_h*M_trunc))*(theta-rate_h)))/theta - Delta_w
+  }
+  else if(theta < rate_h){
+    a = rate_h*(1-P_0h)
+    b = P_0h*(1-exp(-rate_h*M_trunc))
+    c = rate_h*(1-P_0h) + rate_h*P_0h*(1-exp(-rate_h*M_trunc)) 
+    y = (theta-rate_h)*M_trunc + log(-a - (b*theta-c)*exp(-(theta-rate_h)*M_trunc)) 
+    aux = (y-log(-(1-exp(-rate_h*M_trunc))*(theta-rate_h)))/theta - Delta_w
+  }
+  else{
+    aux = log(rate_h*M_trunc*(1-P_0h)/(1-exp(-rate_h*M_trunc)) + P_0h)/rate_h - Delta_w
+  }
+  return(aux)
+}
+
 ggplot(data.frame(x=c(0.001,10)), aes(x=x)) + xlab("theta") + ylab("") +
-  stat_function(fun = Vectorize(theta_ins_MGF_g_w_approx), geom="line", aes(colour = "P(theta)")) 
+  stat_function(fun = Vectorize(theta_ins_MGF_g_w_overflow), geom="line", aes(colour = "P(theta)")) 
 #  stat_function(fun = theta_ins_MGF_b, geom="line", aes(colour = "Theta_MGF_b")) 
 ggsave(file="P(theta).pdf", width=8, height=5)
 
