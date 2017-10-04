@@ -1,5 +1,6 @@
 # Excess demands with ccp -------------------------------------------------
 #Using exponentials to ensure positivity of prices
+#Using Gauss-Legendre
 #Excess demand for capital
 k_excess_d_prob = function(p){
   w0H = exp(p[1])
@@ -21,9 +22,14 @@ k_excess_d_prob = function(p){
     return(aux)
   }
   integrand_k = function(i) ccp_i(i)[1]*(yki(i)/(B(i)*(eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1))))
-  integral = integrate(Vectorize(integrand_k), lower = N-1, upper = N) #Bounds specified in the document
-  #We need to vectorize the function to use integrate
-  aux = integral$value-K
+  f = function(x){
+    i = (x+1)/2
+    aux = integrand_k(i)/2
+    return(aux)
+  }
+  out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
+  integral = sum(out$weights * Vectorize(f)(out$nodes))
+  aux = integral - K
   return(aux)
 }
 #Excess demand for labor without health insurance (High skill)
@@ -65,8 +71,14 @@ l0H_excess_d_prob = function(p){
   }  
   #The integrand of l_0i should be l_hat_0i divided by gamma gamma_prod_bar_0i
   integrand_l0 = function(i) ccp_i(i)[2]*((y0i(i)/(B(i)*(eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1))))/gamma_prod_bar_0i(i))
-  integral = integrate(Vectorize(integrand_l0), lower = N-1, upper = N) #Bounds specified in the document, Vectorizing
-  aux = integral$value - (L0_s_g_var + L0_s_b_var) #subtracting Labor supplied for no insurance
+  f = function(x){
+    i = (x+1)/2
+    aux = integrand_l0(i)/2
+    return(aux)
+  }
+  out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
+  integral = sum(out$weights * Vectorize(f)(out$nodes))
+  aux = integral - (L0_s_g_var + L0_s_b_var) #subtracting Labor supplied for no insurance
   return(aux)  
 }
 #Excess demand for labor without health insurance (Low skill)
@@ -108,8 +120,14 @@ l0L_excess_d_prob = function(p){
   }  
   #The integrand of l_0i should be l_hat_0i divided by gamma gamma_prod_bar_0i
   integrand_l0 = function(i) ccp_i(i)[3]*((y0i(i)/(B(i)*(eta*p_0i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1))))/gamma_prod_bar_0i(i))
-  integral = integrate(Vectorize(integrand_l0), lower = N-1, upper = N) #Bounds specified in the document, Vectorizing
-  aux = integral$value - (L0_s_g_var + L0_s_b_var) #subtracting Labor supplied for no insurance
+  f = function(x){
+    i = (x+1)/2
+    aux = integrand_l0(i)/2
+    return(aux)
+  }
+  out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
+  integral = sum(out$weights * Vectorize(f)(out$nodes))
+  aux = integral - (L0_s_g_var + L0_s_b_var) #subtracting Labor supplied for no insurance
   return(aux)  
 }
 #Excess demand for labor with health insurance (High skill)
@@ -153,8 +171,14 @@ l1H_excess_d_prob = function(p){
     return(aux)
   }
   integrand_l1 = function(i) ccp_i(i)[4]*((y1i(i)/(B(i)*(eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1))))/gamma_prod_bar_1i(i))
-  integral = integrate(Vectorize(integrand_l1), lower = N-1, upper = N) #Bounds specified in the document, vectorize
-  aux = integral$value - (L1_s_g_var + L1_s_b_var) #subtracting Labor supplied for insurance
+  f = function(x){
+    i = (x+1)/2
+    aux = integrand_l1(i)/2
+    return(aux)
+  }
+  out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
+  integral = sum(out$weights * Vectorize(f)(out$nodes))
+  aux = integral - (L1_s_g_var + L1_s_b_var) #subtracting Labor supplied for insurance
   return(aux)  
 }
 #Excess demand for labor with health insurance (Low skill)
@@ -198,13 +222,17 @@ l1L_excess_d_prob = function(p){
     return(aux)
   }
   integrand_l1 = function(i) ccp_i(i)[5]*((y1i(i)/(B(i)*(eta*p_1i(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1))))/gamma_prod_bar_1i(i))
-  integral = integrate(Vectorize(integrand_l1), lower = N-1, upper = N) #Bounds specified in the document, vectorize
-  aux = integral$value - (L1_s_g_var + L1_s_b_var) #subtracting Labor supplied for insurance
+  f = function(x){
+    i = (x+1)/2
+    aux = integrand_l1(i)/2
+    return(aux)
+  }
+  out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
+  integral = sum(out$weights * Vectorize(f)(out$nodes))
+  aux = integral - (L1_s_g_var + L1_s_b_var) #subtracting Labor supplied for insurance
   return(aux)  
 }
 #Consistency of aggregate output
-#TODO: check for this where to write the ccps
-#TODO: Check again this function (is too long)
 Y_excess_s_prob = function(p){
   w0H = exp(p[1])
   w0L = exp(p[2])
@@ -316,8 +344,14 @@ Y_excess_s_prob = function(p){
     integrand = function(i) (ccp_i(i)[1]*yki(i)+ccp_i(i)[2]*y0iH(i)+
                                ccp_i(i)[3]*y0iL(i)+ccp_i(i)[4]*y1iH(i)+
                                ccp_i(i)[5]*y1iL(i))^((sigma-1)/sigma) #integrand of y_1 in the consumption good production
-    integral = integrate(Vectorize(integrand), lower = N-1, upper = N) #Vectorizing
-    aux = integral$value
+    f = function(x){
+      i = (x+1)/2
+      aux = integrand(i)/2
+      return(aux)
+    }
+    out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
+    integral = sum(out$weights * Vectorize(f)(out$nodes))
+    aux = integral
     return(aux)
   }
   aux = Y - (Y_s(Y))^(sigma/(sigma-1))

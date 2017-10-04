@@ -271,12 +271,97 @@ ggplot(data.frame(x=c(0.001,10)), aes(x=x)) + xlab("theta") + ylab("") +
 #  stat_function(fun = theta_ins_MGF_b, geom="line", aes(colour = "Theta_MGF_b")) 
 ggsave(file="P(theta).pdf", width=8, height=5)
 
+#Plot Numerical approximations for the integrals
 
+k_excess_d_prob_num_plot = function(n_nodes){
+  p = c(log(120),log(5.1),log(109),log(2.8),log(4.3),log(258))
+  w0H = exp(p[1])
+  w0L = exp(p[2])
+  w1H = exp(p[3])
+  w1L = exp(p[4])
+  R = exp(p[5])
+  Y = exp(p[6])
+  ###
+  R_hati = function(i) R/z_prod(i)
+  p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
+  ###
+  ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
+  ###
+  yki = function(i) {
+    aux = (Y*((sigma-1)/sigma)^sigma)*
+      ((B(i)*(eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^
+          (zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i) + psi*p_ki(i)^zeta_elas(i)))^sigma
+    return(aux)
+  }
+  integrand_k = function(i) ccp_i(i)[1]*(yki(i)/(B(i)*(eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1))))
+  f = function(x){
+    i = x/(1+x)
+    k_x = (yki(i)/(B(i)*(eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1))))
+    aux = exp(x)*ccp_i(x/(1+x))[1]*k_x/((1+x)^2)
+    return(aux)
+  }
+  #ggplot(data.frame(x=c(0,1)), aes(x=x)) + xlab("i") + ylab("") +
+  #  stat_function(fun = Vectorize(integrand_k), geom="line", aes(colour = "E_k")) 
+  #ggplot(data.frame(x=c(0,1)), aes(x=x)) + xlab("i") + ylab("") +
+  #  stat_function(fun = Vectorize(f), geom="line", aes(colour = "E_k"))
+  out =  gauss.quad(n = n_nodes,kind="laguerre",alpha=0,beta=0)
+  integral = sum(out$weights * Vectorize(f)(out$nodes))
+  aux = integral - K
+  return(aux)
+}
 
+k_excess_d_prob_num2_plot = function(n_nodes){
+  p = c(log(120),log(5.1),log(109),log(2.8),log(4.3),log(258))
+  w0H = exp(p[1])
+  w0L = exp(p[2])
+  w1H = exp(p[3])
+  w1L = exp(p[4])
+  R = exp(p[5])
+  Y = exp(p[6])
+  ###
+  R_hati = function(i) R/z_prod(i)
+  p_ki = function(i) (eta*R_hati(i))/((1-eta)*psi)
+  ###
+  ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
+  ###
+  yki = function(i) {
+    aux = (Y*((sigma-1)/sigma)^sigma)*
+      ((B(i)*(eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^
+          (zeta_elas(i)/(zeta_elas(i)-1)))/(R_hati(i) + psi*p_ki(i)^zeta_elas(i)))^sigma
+    return(aux)
+  }
+  integrand_k = function(i) ccp_i(i)[1]*(yki(i)/(B(i)*(eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1))))
+  f = function(x){
+    i = (x+1)/2
+    k_x = (yki(i)/(B(i)*(eta*p_ki(i)^(zeta_elas(i)-1)+(1-eta))^(zeta_elas(i)/(zeta_elas(i)-1))))
+    aux = ccp_i((x+1)/2)[1]*k_x/2
+    return(aux)
+  }
+  #ggplot(data.frame(x=c(0,1)), aes(x=x)) + xlab("i") + ylab("") +
+  #  stat_function(fun = Vectorize(integrand_k), geom="line", aes(colour = "E_k")) 
+  #ggplot(data.frame(x=c(0,1)), aes(x=x)) + xlab("i") + ylab("") +
+  #  stat_function(fun = Vectorize(f), geom="line", aes(colour = "E_k"))
+  out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
+  integral = sum(out$weights * Vectorize(f)(out$nodes))
+  aux = integral - K
+  return(aux)
+}
 
+nodes_seq = seq(from = 10, to = 150, by = 5)
 
+laguerre_vec = vector(length = length(nodes_seq))
+legendre_vec = vector(length = length(nodes_seq))
 
+for(i in 1:length(nodes_seq)){
+  laguerre_vec[i] = k_excess_d_prob_num_plot(nodes_seq[i])
+  legendre_vec[i] = k_excess_d_prob_num2_plot(nodes_seq[i])  
+}
 
+data_aux = data.frame(nodes_seq, laguerre_vec, legendre_vec) 
+ggplot(data_aux) + geom_line(aes(x=nodes_seq,y=laguerre_vec, colour = "Laguerre")) + 
+  geom_line(aes(x=nodes_seq,y=legendre_vec, colour = "Legendre")) + 
+  xlab("Number of nodes") + ylab("Integral value")
+ggsave(file="numerical_integration_example.pdf", width=8, height=5)  
 
 
 

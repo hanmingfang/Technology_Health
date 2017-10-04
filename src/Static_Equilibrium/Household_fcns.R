@@ -105,7 +105,16 @@ theta_ins_MGF_overflow = function(h,w0,w1){
     aux = 0
   }
   else{
-    aux = uniroot(fun, c(initial,final), tol = tol, extendInt = "upX")$root
+    aux = tryCatch(
+      {
+        uniroot(fun, c(initial,final), tol = tol, extendInt = "upX")$root #Get the root, 
+        #downX is to tell that is decresing on theta, so can look further than the specified range
+      },
+      error = function(cond){
+        message(paste(cond,". Taking theta_ins(",round(w0,2),",",round(w1,2),") = +Inf"))
+        return(Inf)
+      }
+    )
   }
   return(aux)
 }

@@ -14,6 +14,7 @@ library(nloptr)
 library(distrEx)
 library(memoise)
 library(nleqslv)
+library(statmod)
 
 #Set my directory
 dir = '~/Technology_Health/'
@@ -21,7 +22,7 @@ setwd(dir)
 
 # Parameters --------------------------------------------------------------
 #Household 
-sH = 5              #Skill High type 
+sH = 4              #Skill High type 
 sL = 1              #Skill Low type
 lambda_gH = 0.25    #Measure healthy workers High skill
 lambda_gL = 0.25    #Measure healthy workers Low skill
@@ -29,12 +30,12 @@ lambda_bH = 0.25    #Measure unhealthy workers High skill
 lambda_bL = 0.25    #Measure unhealthy workers Low skill
 theta_L = 0         #Domain for theta
 theta_H = Inf
-m_L = 0             #Domain for medical expenditure shocks
-m_F = Inf
-shape_gH = 1.5         #Shape parameter of theta (Gamma distribution) High skill
+#m_L = 0             #Domain for medical expenditure shocks
+#m_F = Inf
+shape_gH = 1         #Shape parameter of theta (Gamma distribution) High skill
 shape_gL = 1         #Shape parameter of theta (Gamma distribution) Low skill
-shape_bH = 0.6       #Shape parameter of theta (Gamma distribution) High skill
-shape_bL = 0.3       #Shape parameter of theta (Gamma distribution) Low skill
+shape_bH = 1       #Shape parameter of theta (Gamma distribution) High skill
+shape_bL = 1       #Shape parameter of theta (Gamma distribution) Low skill
 #For a given scale parameter, higher shape parameter means more risk averse households
 scale_gH = 1         #Scale parameter of theta (Gamma distribution) High skill
 scale_gL = 1         #Scale parameter of theta (Gamma distribution) Low skill
@@ -57,110 +58,32 @@ zeta = 2            #Elasticity of substitution between factors (if fixed), just
 C_IN = 0.01          #Health Insurance Fixed Cost (we can start with a very low one)
 A = 1               #Parameter in labor productivity
 A_0 = 1             #Parameter in labor productivity
-delta_H =  5       #Parameter in labor productivity of High skill type
+delta_H =  4        #Parameter in labor productivity of High skill type
 lambda_d = 10       #Parameter in sorting function
-alpha_d = 5         #Parameter in sorting function
+#alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
+D_0 = 1               #Parameter in Automation Cost function
 s_ccp = 1           #Parameter to scale ccps 
 tol = 1e-12          #Tolerance for unitroot, affects computation time
 K = 1               #Capital stock in the economy
-
-
-# Primitive Functions ---------------------------------------------------------------
-#Distribution objects
-#Distribution for Positive part of Medical expenditure
-D_mg = Exp(rate_g)
-D_mb = Exp(rate_b)
-#Distribution for Risk aversion parameter
-D_theta_gH = Gammad(scale = scale_gH,shape = shape_gH)
-D_theta_gL = Gammad(scale = scale_gL,shape = shape_gL)
-D_theta_bH = Gammad(scale = scale_bH,shape = shape_bH)
-D_theta_bL = Gammad(scale = scale_bL,shape = shape_bL)
-#Conditional cdf of Households' risk aversion parameter
-F_gH  = function(theta){ 
-  aux = p(D_theta_gH)(theta) #Expectation is shape*rate, Good health
-  return(aux)
-}
-F_gL  = function(theta){ 
-  aux = p(D_theta_gL)(theta) #Expectation is shape*rate, Good health
-  return(aux)
-} 
-F_bH  = function(theta){
-  aux = p(D_theta_bH)(theta) #Bad health
-  return(aux)
-}
-F_bL  = function(theta){
-  aux = p(D_theta_bL)(theta) #Bad health
-  return(aux)
-}
-#Conditional cdf of Medical Expenditure (Positive part!)
-H_g  = function(m){
-  aux =  p(D_mg)(m) #Good health
-  return(aux)
-}     
-H_b  = function(m){
-  aux =  p(D_mb)(m) #Bad health
-  return(aux)
-}
-#Parametrized functions
-#Labor productivity (per skill unit)
-gamma_prod = function(s,i){   
-  if(s == sL){aux = A_0*exp(A*i)}
-  else{aux = A_0*exp(A*i)*exp(delta_H*i)}
-  return(aux)
-}
-#Sorting of workers
-#Primitive function
-sorting_f = function(i){
-  #aux = 1
-  #aux = i
-  aux = exp(lambda_d*i - alpha_d)/(1+exp(lambda_d*i - alpha_d))
-  return(aux)
-}
-#Normalizing constant
-norm_const_delta_sort = integrate(Vectorize(sorting_f),lower = N-1, upper = N)$value 
-#Sorting function
-delta_sort = function(i){
-  aux = sorting_f(i)/norm_const_delta_sort
-  return(aux)
-}
-#Capital productivity
-z_prod = function(i){
-  aux = 1
-  return(aux)
-}
-#Function for elasticity of subst
-zeta_elas = function(i){
-  aux = zeta
-  return(aux)
-}
-#Normalizing constant in production function
-B = function(i){
-  zetai = zeta_elas(i)
-  aux = (1-eta)^(zetai/(1-zetai))
-  return(aux)
-}
-#Automation Fixed Cost
-C_A = function(i){
-  aux = 0.1*exp(D*i)
-  return(aux)
-}
+n_nodes = 20        #Number of nodes to evaluate numerical integrals
 
 # Equilibrium solutions -------------------------------------------------------------------
 
 #Sourcing equations from the model
+source("src/Static_Equilibrium/Primitive_fcns.R")
 source("src/Static_Equilibrium/Household_fcns.R")
 source("src/Static_Equilibrium/Firm_fcns.R")
 source("src/Static_Equilibrium/Equilibrium_fcns.R")
 
 #Non linear equation solver (is very fast but a little more sensitive to initial conditions)
 #Using exponentials in the equations to ensure positivity
-#Change method to "Newton" if "Broyden" doesn't converge.
+#Change method to "Newton" if "Broyden" doesn't converge. However Broyden is way faster
 #If the algorithm doesn't find a better point, try decreasing C_IN
 ptm = proc.time()
-nles_sol = nleqslv(x = c(log(328),log(8),log(314),log(5),log(6.8),log(688)), 
-                   fn = F_zeros, jac=NULL, method = "Newton", jacobian=FALSE, xscalm = "fixed",
-                   control = list("allowSingular"=TRUE, scalex = c(0.1,1,0.1,1,1,0.01), trace = 1, btol=.001),
+nles_sol = nleqslv(x = c(log(120),log(5),log(109),log(2.7),log(4.2),log(258)), 
+                   fn = F_zeros, jac=NULL, method = "Broyden", jacobian=FALSE, xscalm = "fixed",
+                   control = list("allowSingular"=TRUE, scalex = c(0.01,1,0.01,1,1,0.01), trace = 1, btol=.001),
                    global="dbldog")
 proc.time() - ptm
 nles_sol
@@ -192,7 +115,10 @@ w0 = (w0H*L0_H + w0L*L0_L)/(L0_H+L0_L)
 c(w0,w1)
 #Checking if w1>w0
 w0-w1
-
+#Checking if the compensation package s higher (w1+P)>w0
+#PremiumH = 
+#PremiumL =   
+#w1P = ((w1H+PremiumH)*L1_H + (w1L+PremiumL)*L1_L)/(L1_H+L1_L)
 #To test different algorithms uncomment next line
 #ptm = proc.time()
 #testnslv(x =c(log(10),log(2),log(8),log(0.2),log(1.3),log(28)), fn = F_zeros)
