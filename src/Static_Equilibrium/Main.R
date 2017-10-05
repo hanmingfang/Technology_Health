@@ -62,11 +62,10 @@ delta_H =  4        #Parameter in labor productivity of High skill type
 lambda_d = 10       #Parameter in sorting function
 #alpha_d = 5         #Parameter in sorting function
 D = 1               #Parameter in Automation Cost function
-D_0 = 1               #Parameter in Automation Cost function
 s_ccp = 1           #Parameter to scale ccps 
 tol = 1e-12          #Tolerance for unitroot, affects computation time
 K = 1               #Capital stock in the economy
-n_nodes = 20        #Number of nodes to evaluate numerical integrals
+n_nodes = 40        #Number of nodes to evaluate numerical integrals
 
 # Equilibrium solutions -------------------------------------------------------------------
 

@@ -363,3 +363,75 @@ F_zeros = function(p){
           l1H_excess_d_prob(p), l1L_excess_d_prob(p), Y_excess_s_prob(p))
   return(aux)
 }
+
+#Functions to get equilibrium measure of firms
+#Measure of firms that choose capital
+measure_k = function(w0H,w0L,w1H,w1L,R,Y){
+  ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
+  f = function(x){
+    i = (x+1)/2
+    aux = ccp_i(i)[1]/2
+    return(aux)
+  }
+  out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
+  integral = sum(out$weights * Vectorize(f)(out$nodes))
+  aux = integral
+  return(aux)
+}
+#Measure of firms that choose l0H
+measure_l0H = function(w0H,w0L,w1H,w1L,R,Y){
+  ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
+  f = function(x){
+    i = (x+1)/2
+    aux = ccp_i(i)[2]/2
+    return(aux)
+  }
+  out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
+  integral = sum(out$weights * Vectorize(f)(out$nodes))
+  aux = integral
+  return(aux)
+}
+#Measure of firms that choose l0L
+measure_l0L = function(w0H,w0L,w1H,w1L,R,Y){
+  ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
+  f = function(x){
+    i = (x+1)/2
+    aux = ccp_i(i)[3]/2
+    return(aux)
+  }
+  out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
+  integral = sum(out$weights * Vectorize(f)(out$nodes))
+  aux = integral
+  return(aux)
+}
+#Measure of firms that choose l1H
+measure_l1H = function(w0H,w0L,w1H,w1L,R,Y){
+  ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
+  f = function(x){
+    i = (x+1)/2
+    aux = ccp_i(i)[4]/2
+    return(aux)
+  }
+  out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
+  integral = sum(out$weights * Vectorize(f)(out$nodes))
+  aux = integral
+  return(aux)
+}
+#Measure of firms that choose l1L
+measure_l1L = function(w0H,w0L,w1H,w1L,R,Y){
+  ccp_i = function(i) ccp_memo(w0H,w0L,w1H,w1L,R,Y,i)
+  f = function(x){
+    i = (x+1)/2
+    aux = ccp_i(i)[5]/2
+    return(aux)
+  }
+  out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
+  integral = sum(out$weights * Vectorize(f)(out$nodes))
+  aux = integral
+  return(aux)
+}
+
+
+
+
+

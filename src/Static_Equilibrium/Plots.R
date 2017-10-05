@@ -1,7 +1,7 @@
 # Plots -------------------------------------------------------------------
 #Some plots to check some results
 #Most of the plots are just for the deterministic version of the model
-dir = '~/Technology_Health/plots/'
+dir = '~/Technology_Health/plots/general_plots/'
 setwd(dir)
 
 #Plot to show that FOSD in Assumption 1 holds for this case
@@ -220,29 +220,6 @@ ggplot(data.frame(x=c(N-1,N)), aes(x=x)) + xlab("i") + ylab("") +
                 round(Y,2),") \n","(w0,w1) = ","(",round(w0,2),",",round(w1,1),")"))
 ggsave(file="conditional_profits_prob_equilibrium.pdf", width=8, height=5)
 
-#Plot theta_ins with MGF
-w0H = 104
-w1H = 4
-Delta_w = w0H-w1H
-#Delta_w = w0L-w1L
-
-theta_ins_MGF_g_w_approx = function(theta){
-  rate_h = rate_g
-  P_0h = P_0g
-  if(theta!= rate_h){
-    if(exp((theta-rate_h)*M_trunc)==Inf){ #Doing a Taylor approximation in this case
-      aux = ((theta-rate_h)*M_trunc +log(rate_h*(1-P_0h)) -log((1-exp(-rate_h*M_trunc))*(theta-rate_h)))/theta - Delta_w
-    }
-    else{
-      aux = log(rate_h*(exp((theta-rate_h)*M_trunc)-1)*(1-P_0h)/((1-exp(-rate_h*M_trunc))*(theta-rate_h)) + P_0h)/theta - Delta_w
-    }
-  }
-  else{
-    aux = log(rate_h*M_trunc*(1-P_0h)/(1-exp(-rate_h*M_trunc)) + P_0h)/rate_h - Delta_w
-  }
-  return(aux)
-}
-
 theta_ins_MGF_g_w_overflow = function(theta){
   rate_h = rate_g
   P_0h = P_0g
@@ -265,14 +242,11 @@ theta_ins_MGF_g_w_overflow = function(theta){
   }
   return(aux)
 }
-
 ggplot(data.frame(x=c(0.001,10)), aes(x=x)) + xlab("theta") + ylab("") +
   stat_function(fun = Vectorize(theta_ins_MGF_g_w_overflow), geom="line", aes(colour = "P(theta)")) 
-#  stat_function(fun = theta_ins_MGF_b, geom="line", aes(colour = "Theta_MGF_b")) 
 ggsave(file="P(theta).pdf", width=8, height=5)
 
 #Plot Numerical approximations for the integrals
-
 k_excess_d_prob_num_plot = function(n_nodes){
   p = c(log(120),log(5.1),log(109),log(2.8),log(4.3),log(258))
   w0H = exp(p[1])
@@ -300,10 +274,6 @@ k_excess_d_prob_num_plot = function(n_nodes){
     aux = exp(x)*ccp_i(x/(1+x))[1]*k_x/((1+x)^2)
     return(aux)
   }
-  #ggplot(data.frame(x=c(0,1)), aes(x=x)) + xlab("i") + ylab("") +
-  #  stat_function(fun = Vectorize(integrand_k), geom="line", aes(colour = "E_k")) 
-  #ggplot(data.frame(x=c(0,1)), aes(x=x)) + xlab("i") + ylab("") +
-  #  stat_function(fun = Vectorize(f), geom="line", aes(colour = "E_k"))
   out =  gauss.quad(n = n_nodes,kind="laguerre",alpha=0,beta=0)
   integral = sum(out$weights * Vectorize(f)(out$nodes))
   aux = integral - K
@@ -337,10 +307,6 @@ k_excess_d_prob_num2_plot = function(n_nodes){
     aux = ccp_i((x+1)/2)[1]*k_x/2
     return(aux)
   }
-  #ggplot(data.frame(x=c(0,1)), aes(x=x)) + xlab("i") + ylab("") +
-  #  stat_function(fun = Vectorize(integrand_k), geom="line", aes(colour = "E_k")) 
-  #ggplot(data.frame(x=c(0,1)), aes(x=x)) + xlab("i") + ylab("") +
-  #  stat_function(fun = Vectorize(f), geom="line", aes(colour = "E_k"))
   out =  gauss.quad(n = n_nodes,kind="legendre",alpha=0,beta=0)
   integral = sum(out$weights * Vectorize(f)(out$nodes))
   aux = integral - K

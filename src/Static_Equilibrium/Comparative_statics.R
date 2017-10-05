@@ -65,7 +65,7 @@ D = 1               #Parameter in Automation Cost function
 s_ccp = 1           #Parameter to scale ccps 
 tol = 1e-12          #Tolerance for unitroot, affects computation time
 K = 1               #Capital stock in the economy
-n_nodes = 20        #Number of nodes to evaluate numerical integrals
+n_nodes = 40        #Number of nodes to evaluate numerical integrals
 # Equilibrium solutions -------------------------------------------------------------------
 
 #Sourcing equations from the model
@@ -97,14 +97,23 @@ L0_gL = vector(length = n_grid)
 L0_bL = vector(length = n_grid)
 L0_L = vector(length = n_grid)
 w0 = vector(length = n_grid)
+m_k = vector(length = n_grid)
+m_l0H = vector(length = n_grid)
+m_l0L = vector(length = n_grid)
+m_l1H = vector(length = n_grid)
+m_l1L = vector(length = n_grid)
 nles_sol_vec = vector(length = n_grid)
 data_eq = list()
 #Param changes
-param_changes =  c('lambda_d','D')
+param_changes =  c('D', 'lambda_d','rho', 'delta_H','lambda_H','lambda_g')
 #grid parameter values
 grid_par = list()
 grid_par[['D']] = seq(from = 1, by = 1, length.out = n_grid)
 grid_par[['lambda_d']] = seq(from = 10, by = 1, length.out = n_grid)
+grid_par[['rho']] = seq(from = 0.8, by = 0.01, length.out = n_grid)
+grid_par[['delta_H']] = seq(from = 4, by = 0.1, length.out = n_grid)
+grid_par[['lambda_H']] = seq(from = 0.25, by = 0.005, length.out = n_grid)
+grid_par[['lambda_g']] = seq(from = 0.25, by = 0.005, length.out = n_grid)
 #Computing the equilibrium for different values
 #Start with a very close initial condition, and then use 
 #the previous equilibrium solution as initial condition
@@ -112,10 +121,34 @@ x_initial = c(log(120),log(5.1),log(109),log(2.8),log(4.3),log(258))
 #Start clock
 ptm = proc.time()
 for(j in param_changes){
+  lambda_gH = 0.25    #Measure healthy workers High skill
+  lambda_gL = 0.25    #Measure healthy workers Low skill
+  lambda_bH = 0.25    #Measure unhealthy workers High skill
+  lambda_bL = 0.25    #Measure unhealthy workers Low skill
+  rho = 0.8           #Relative labor productivity of unhealthy workers
+  delta_H =  4        #Parameter in labor productivity of High skill type
+  lambda_d = 10       #Parameter in sorting function
+  D = 1               #Parameter in Automation Cost function
   for(i in 1:n_grid){
-    #Changing parameter value
+    #Changing parameter value depending on the simulation
     if(j =='D'){ D = grid_par[[j]][i]}
-    else{ lambda_d = grid_par[[j]][i]}
+    else if(j =='lambda_d'){ lambda_d = grid_par[[j]][i]}
+    else if(j =='delta_H'){ delta_H = grid_par[[j]][i]}
+    else if(j =='lambda_H'){ 
+      lambda_gH = grid_par[[j]][i]
+      lambda_bH = grid_par[[j]][i]
+      lambda_gL =  0.25 - (grid_par[[j]][i]-0.25)
+      lambda_bL =  0.25 - (grid_par[[j]][i]-0.25)
+      print(paste("lambda_H = ", lambda_gH + lambda_bH, "lambda_L = ", lambda_gL + lambda_bL))
+    }
+    else if(j =='lambda_g'){ 
+      lambda_gH = grid_par[[j]][i]
+      lambda_bH = 0.25 - (grid_par[[j]][i]-0.25)
+      lambda_gL = grid_par[[j]][i]
+      lambda_bL = 0.25 - (grid_par[[j]][i]-0.25)
+      print(paste("lambda_g = ", lambda_gH + lambda_gL,"lambda_b = ", lambda_bH + lambda_bL))
+    }
+    else{ rho = grid_par[[j]][i]}
     #Sourcing functions again
     source("src/Static_Equilibrium/Primitive_fcns.R")
     source("src/Static_Equilibrium/Household_fcns.R")
@@ -133,7 +166,8 @@ for(j in param_changes){
                            method = "Broyden", 
                            jacobian=FALSE, 
                            xscalm = "fixed",
-                           control = list("allowSingular"=TRUE, scalex = c(0.01,1,0.01,1,1,0.01), trace = 1, btol=.001, xtol = 1e-10),
+                           control = list("allowSingular"=TRUE, scalex = c(0.01,1,0.01,1,1,0.01),
+                                          trace = 1, btol=.001, xtol = 1e-10, maxit = 100),
                            global="dbldog")
       },
       error = function(cond){
@@ -144,7 +178,8 @@ for(j in param_changes){
                            method = "Broyden", 
                            jacobian=FALSE, 
                            xscalm = "fixed",
-                           control = list("allowSingular"=TRUE, scalex = c(0.01,1,0.01,1,1,0.01), trace = 1, btol=.001),
+                           control = list("allowSingular"=TRUE, scalex = c(0.01,1,0.01,1,1,0.01),
+                                          trace = 1, btol=.001, xtol = 1e-10, maxit = 100),
                            global="dbldog")
         return(nles_sol) 
       }
@@ -170,22 +205,22 @@ for(j in param_changes){
     L0_gL[i] = L0_s('g',sL,w0L[i],w1L[i])
     L0_bL[i] = L0_s('b',sL,w0L[i],w1L[i])
     L0_L[i] = L0_gL[i] + L0_bL[i]
-    w0[i] = (w0H[i]*L0_H[i] + w0L[i]*L0_L[i])/(L0_H[i]+L0_L[i]) 
+    w0[i] = (w0H[i]*L0_H[i] + w0L[i]*L0_L[i])/(L0_H[i]+L0_L[i])
+    #Calculating measure of firms that demand each input
+    m_k[i] = measure_k(w0H[i],w0L[i],w1H[i],w1L[i],R[i],Y[i])
+    m_l0H[i] = measure_l0H(w0H[i],w0L[i],w1H[i],w1L[i],R[i],Y[i])
+    m_l0L[i] = measure_l0L(w0H[i],w0L[i],w1H[i],w1L[i],R[i],Y[i])
+    m_l1H[i] = measure_l1H(w0H[i],w0L[i],w1H[i],w1L[i],R[i],Y[i])
+    m_l1L[i] = measure_l1L(w0H[i],w0L[i],w1H[i],w1L[i],R[i],Y[i])
   }
 #Saving results in a data frame
-  data_eq[[j]] = data.frame(w0H,w0L,w1H,w1L, R,Y, nles_sol_vec, L1_gH, L1_bH, L1_H, L1_gL, L1_bL,
-                        L1_L, w1, L0_gH, L0_bH, L0_H, L0_gL, L0_bL, L0_L, w0)
+  data_eq[[j]] = data.frame(grid_par[[j]], w0H,w0L,w1H,w1L, R,Y, nles_sol_vec, L1_gH, L1_bH, L1_H, L1_gL, L1_bL,
+                        L1_L, w1, L0_gH, L0_bH, L0_H, L0_gL, L0_bL, L0_L, w0, m_k, m_l0H, m_l0L, m_l1H, m_l1L)
 }
 #Stop clock
 proc.time() - ptm
 #Saving R data
 save(data_eq,file="data/data.Rda")
-
-
-
-
-
-
 
 
 
